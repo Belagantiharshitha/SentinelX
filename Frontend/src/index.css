@@ -1,0 +1,106 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+/* 
+  SentinelX v4.0 - "Solaris Ember" Design System 
+  Aesthetic: Absolute Black, Electric Orange & Liquid Amber
+*/
+
+@theme {
+  --color-matte-dark: #021202;
+  --color-matte-black: #000000;
+
+  --color-cyber-primary: #10b981;
+  /* Emerald Green */
+  --color-cyber-secondary: #34d399;
+  /* Mint Green */
+  --color-cyber-accent: #059669;
+  /* Forest Accent */
+  --color-cyber-muted: rgba(16, 185, 129, 0.15);
+
+  --color-neon-safe: #6ee7b7;
+  --color-neon-warning: #a7f3d0;
+  --color-neon-danger: #4ade80;
+  --color-neon-critical: #2dd4bf;
+
+  --font-sans: "Plus Jakarta Sans", "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+@layer base {
+  body {
+    @apply bg-matte-dark text-slate-300 antialiased selection:bg-cyber-primary/30 selection:text-white font-sans overflow-x-hidden;
+    background-image:
+      radial-gradient(circle at 10% 10%, rgba(16, 185, 129, 0.08) 0%, transparent 40%),
+      radial-gradient(circle at 90% 90%, rgba(52, 211, 153, 0.05) 0%, transparent 40%),
+      linear-gradient(to bottom right, #021202, #080402) !important;
+    min-height: 100vh;
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-cyber-primary/20 rounded-full hover:bg-cyber-primary/40 transition-all duration-300;
+  }
+}
+
+@layer components {
+
+  /* Hyper-premium Glassmorphism with Solaris Glow */
+  .glass-card {
+    @apply bg-[#080503]/70 backdrop-blur-3xl border border-white/5 rounded-[2rem] transition-all duration-700 overflow-hidden relative;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  }
+
+  .glass-card::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-br from-cyber-primary/10 to-transparent opacity-0 transition-opacity duration-500 pointer-events-none;
+  }
+
+  .glass-card:hover {
+    @apply border-cyber-primary/30 bg-[#0a0705]/90 translate-y-[-4px];
+    box-shadow: 0 0 50px -10px rgba(16, 185, 129, 0.25);
+  }
+
+  .glass-card:hover::before {
+    @apply opacity-100;
+  }
+
+  /* Futuristic Inputs */
+  .glass-input {
+    @apply bg-white/[0.03] border border-white/10 rounded-2xl px-5 py-4 text-sm focus:border-cyber-primary/60 focus:outline-none focus:ring-4 focus:ring-cyber-primary/10 transition-all text-white placeholder:text-slate-600 font-medium;
+  }
+
+  /* Solaris Gradient Button */
+  .btn-primary {
+    @apply relative overflow-hidden bg-gradient-to-r from-cyber-primary via-cyber-accent to-cyber-secondary text-white px-8 py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] hover:scale-[1.02] transition-all active:scale-[0.97] disabled:opacity-50 shadow-[0_10px_30px_rgba(16,185,129,0.4)];
+  }
+
+  .btn-secondary {
+    @apply bg-white/5 border border-white/10 text-slate-300 px-6 py-4 rounded-2xl font-bold text-xs hover:bg-white/10 hover:border-cyber-primary/20 transition-all;
+  }
+}
+
+/* Creative Animations */
+@keyframes portal-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.1;
+  }
+
+  50% {
+    transform: scale(1.1);
+    opacity: 0.25;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 0.1;
+  }
+}
+
+.animate-portal {
+  animation: portal-pulse 4s ease-in-out infinite;
+}
