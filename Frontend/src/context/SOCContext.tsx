@@ -9,9 +9,11 @@ interface SOCContextType {
     alerts: SuspiciousAlert[];
     isAttackMode: boolean;
     systemStatus: 'Live' | 'Under Attack' | 'Maintenance';
+    dashboardData: any;
     setAttackMode: (val: boolean) => void;
-    triggerSimulation: (type: string) => void;
+    triggerSimulation: (type: string, targetId?: string) => Promise<void>;
     resolveAlert: (id: string) => void;
+    lockdownAccount: (id: string) => Promise<void>;
     refreshData: () => void;
 }
 
@@ -24,14 +26,27 @@ export const SOCProvider = ({ children }: { children: ReactNode }) => {
     const [systemStatus, setSystemStatus] = useState<'Live' | 'Under Attack' | 'Maintenance'>('Live');
     const [seenAlertIds, setSeenAlertIds] = useState<Set<string>>(new Set());
     const [dismissedAlertIds, setDismissedAlertIds] = useState<Set<string>>(new Set());
+    const [dashboardData, setDashboardData] = useState<any>(null);
 
     const fetchData = async () => {
         try {
             console.log("[SOCContext] Fetching from:", API_BASE_URL);
-            const [accountsRes, incidentsRes] = await Promise.all([
+            const [accountsRes, incidentsRes, dashboardRes] = await Promise.all([
                 fetch(`${API_BASE_URL}/accounts/`),
-                fetch(`${API_BASE_URL}/incidents/`)
+                fetch(`${API_BASE_URL}/incidents/`),
+                fetch(`${API_BASE_URL}/dashboard/overview`)
             ]);
+
+            if (dashboardRes.ok) {
+                const dData = await dashboardRes.json();
+                setDashboardData(dData);
+                // System Status logic: if we have open high/critical incidents, we are under attack
+                if (dData.recent_incidents && dData.recent_incidents.some((inc: any) => inc.severity === 'Critical' || inc.severity === 'High')) {
+                    setIsAttackMode(true);
+                } else {
+                    setIsAttackMode(false);
+                }
+            }
 
             if (accountsRes.ok) {
                 const accountsDataRaw = await accountsRes.json();
@@ -44,6 +59,7 @@ export const SOCProvider = ({ children }: { children: ReactNode }) => {
 
                     return {
                         id: String(acc.id),
+                        holderName: acc.holder_name || 'Generic User',
                         accountNumber: acc.account_number,
                         bank: 'SentinelX Internal',
                         riskScore: acc.risk_score || 0,
@@ -69,15 +85,18 @@ export const SOCProvider = ({ children }: { children: ReactNode }) => {
                     timestamp: inc.created_at,
                     severity: (inc.severity || 'high').toUpperCase() as any,
                     type: inc.attack_type,
-                    message: inc.ai_summary || `Automated response: ${inc.action_taken}`
+                    message: inc.ai_summary || `Automated response: ${inc.action_taken}`,
+                    holderName: inc.account?.holder_name,
+                    accountNumber: inc.account?.account_number
                 }));
 
                 // Trigger toasts for NEW alerts
                 mappedAlerts.forEach(alert => {
-                    if (!seenAlertIds.has(alert.id)) {
+                    // Only toast High or Critical to reduce noise
+                    if (!seenAlertIds.has(alert.id) && (alert.severity === 'HIGH' || alert.severity === 'CRITICAL')) {
                         toast(alert.message, {
                             icon: '🚨',
-                            duration: 6000,
+                            duration: 5000,
                             id: alert.id // Prevent duplicates
                         });
                         setSeenAlertIds(prev => new Set(prev).add(alert.id));
@@ -103,14 +122,14 @@ export const SOCProvider = ({ children }: { children: ReactNode }) => {
         setSystemStatus(isAttackMode ? 'Under Attack' : 'Live');
     }, [isAttackMode]);
 
-    const triggerSimulation = async (type: string) => {
+    const triggerSimulation = async (type: string, targetId?: string) => {
         if (sessions.length === 0) {
             console.error("No accounts available for simulation");
             toast.error("No accounts available for simulation");
             return;
         }
 
-        const accountId = sessions[0].id;
+        const accountId = targetId || sessions[0].id;
         let endpoint = "";
 
         const typeLower = type.toLowerCase();
@@ -120,6 +139,8 @@ export const SOCProvider = ({ children }: { children: ReactNode }) => {
         else if (typeLower.includes("travel")) endpoint = "impossible-travel";
         else if (typeLower.includes("transaction")) endpoint = "transaction-anomaly";
         else if (typeLower.includes("corruption")) endpoint = "bank-corruption";
+        else if (typeLower.includes("sql")) endpoint = "sql-injection"; // generic or default endpoint later
+        else endpoint = "brute-force"; // Default fallback if not matched exactly to keep UI alive
 
         if (!endpoint) return;
 
@@ -130,13 +151,32 @@ export const SOCProvider = ({ children }: { children: ReactNode }) => {
                 method: 'POST'
             });
             if (res.ok) {
+                const result = await res.json();
                 toast.success(`${type} initiated!`, { id: 'sim-loading' });
                 fetchData();
+                return result;
             } else {
                 toast.error(`Failed to trigger ${type}`, { id: 'sim-loading' });
             }
         } catch (error) {
             toast.error("Network error triggering simulation", { id: 'sim-loading' });
+        }
+    };
+
+    const lockdownAccount = async (id: string) => {
+        toast.loading("Initiating emergency lockdown...", { id: 'lockdown-loading' });
+        try {
+            const res = await fetch(`${API_BASE_URL}/accounts/${id}/lockdown`, {
+                method: 'POST'
+            });
+            if (res.ok) {
+                toast.success("Account locked successfully", { id: 'lockdown-loading' });
+                fetchData();
+            } else {
+                toast.error("Failed to lock account", { id: 'lockdown-loading' });
+            }
+        } catch (error) {
+            toast.error("Network error during lockdown", { id: 'lockdown-loading' });
         }
     };
 
@@ -153,9 +193,11 @@ export const SOCProvider = ({ children }: { children: ReactNode }) => {
                 alerts,
                 isAttackMode,
                 systemStatus,
+                dashboardData,
                 setAttackMode: setIsAttackMode,
                 triggerSimulation,
                 resolveAlert,
+                lockdownAccount,
                 refreshData: fetchData
             }}
         >

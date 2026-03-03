@@ -1,5 +1,6 @@
 export interface UserSession {
     id: string;
+    holderName: string;
     accountNumber: string;
     bank: string;
     riskScore: number;
@@ -17,6 +18,8 @@ export interface SuspiciousAlert {
     severity: 'MEDIUM' | 'HIGH' | 'CRITICAL';
     type: string;
     message: string;
+    holderName?: string;
+    accountNumber?: string;
 }
 
 export const getRiskLevel = (score: number): UserSession['riskLevel'] => {
@@ -37,6 +40,7 @@ export const generateMockSessions = (count: number): UserSession[] => {
         const score = Math.floor(Math.random() * 40); // Default low risk
         return {
             id: `session-${i + 1000}`,
+            holderName: `User ${i + 1}`,
             accountNumber: `ACC-${Math.floor(10000000 + Math.random() * 90000000)}`,
             bank: banks[Math.floor(Math.random() * banks.length)],
             riskScore: score,

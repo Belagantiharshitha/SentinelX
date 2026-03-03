@@ -24,7 +24,7 @@ const Notifications = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 max-w-4xl">
+            <div className="grid grid-cols-1 gap-4 max-w-full md:max-w-4xl">
                 <AnimatePresence mode="popLayout">
                     {alerts.map((alert, i) => (
                         <motion.div
@@ -51,7 +51,7 @@ const Notifications = () => {
 
                                 <div className="flex items-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest bg-black/40 w-fit px-3 py-1.5 rounded-lg border border-white/5 mb-1">
                                     <Clock size={12} className="text-cyber-primary/70" />
-                                    {new Date(alert.timestamp).toLocaleString()}
+                                    {new Date(alert.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'medium' })}
                                 </div>
                             </div>
 

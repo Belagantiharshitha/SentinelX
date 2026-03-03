@@ -15,6 +15,7 @@ import IncidentReports from './pages/IncidentReports';
 import Login from './pages/Login';
 import AccountDetail from './pages/AccountDetail';
 import Notifications from './pages/Notifications';
+import AdminProfile from './pages/AdminProfile';
 
 const AppContent = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -25,15 +26,15 @@ const AppContent = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#0a0a0f] text-slate-200 relative overflow-hidden">
-      {/* Ambient glowing orbs for a more modern premium feel */}
+    <div className="flex h-screen w-screen bg-[#0a0a0f] text-slate-200 relative overflow-hidden">
+      {/* Ambient glowing orbs */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-500/10 blur-[150px] rounded-full pointer-events-none mix-blend-screen" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-rose-500/10 blur-[120px] rounded-full pointer-events-none mix-blend-screen" />
 
       <Sidebar collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
-      <div className="flex-1 flex flex-col min-w-0 z-10">
+      <div className="flex-1 flex flex-col min-w-0 z-10 overflow-hidden">
         <Header />
-        <main className="flex-1 p-8 overflow-auto z-10 relative">
+        <main className="flex-1 p-4 md:p-8 overflow-y-auto z-10 relative scrollbar-thin scrollbar-thumb-white/10 scroll-smooth">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/accounts" element={<Accounts />} />
@@ -42,6 +43,7 @@ const AppContent = () => {
             <Route path="/simulation" element={<Simulation />} />
             <Route path="/reports" element={<IncidentReports />} />
             <Route path="/accounts/:id" element={<AccountDetail />} />
+            <Route path="/profile" element={<AdminProfile />} />
           </Routes>
         </main>
       </div>

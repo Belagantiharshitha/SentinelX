@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Bell, Search, Activity, User } from 'lucide-react';
+import { Bell, Search, Activity, User, LogOut, XCircle } from 'lucide-react';
 import { useSOC } from '../context/SOCContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -8,14 +8,19 @@ const Header = () => {
     const navigate = useNavigate();
 
     const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const searchRef = useRef<HTMLDivElement>(null);
+    const profileRef = useRef<HTMLDivElement>(null);
 
     // Close popups when clicking outside
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
                 setIsSearchOpen(false);
+            }
+            if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+                setIsProfileOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -43,6 +48,11 @@ const Header = () => {
         setSearchQuery('');
     };
 
+    const handleLogout = () => {
+        // Simple logout for now: reload app to reset login state
+        window.location.href = '/';
+    };
+
     const hasResults = filteredAccounts.length > 0 || filteredAlerts.length > 0;
 
     return (
@@ -59,8 +69,19 @@ const Header = () => {
                             setIsSearchOpen(true);
                         }}
                         onFocus={() => setIsSearchOpen(true)}
-                        className="bg-white/[0.03] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 w-80 text-sm focus:border-cyber-primary/40 focus:outline-none focus:ring-1 focus:ring-cyber-primary/10 transition-all placeholder:text-slate-600"
+                        className="bg-white/[0.03] border border-white/10 rounded-xl pl-10 pr-10 py-2.5 w-80 text-sm focus:border-cyber-primary/40 focus:outline-none focus:ring-1 focus:ring-cyber-primary/10 transition-all placeholder:text-slate-600"
                     />
+                    {searchQuery && (
+                        <button
+                            onClick={() => {
+                                setSearchQuery('');
+                                setIsSearchOpen(false);
+                            }}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 hover:text-white transition-colors"
+                        >
+                            <XCircle size={16} />
+                        </button>
+                    )}
 
                     {/* Search Dropdown - show when focused so user sees it's active */}
                     {isSearchOpen && (
@@ -86,7 +107,7 @@ const Header = () => {
                                                 >
                                                     <div>
                                                         <div className="text-sm font-semibold">{acc.accountNumber ?? acc.id}</div>
-                                                        <div className="text-xs text-slate-500">Risk: {acc.riskScore}</div>
+                                                        <div className="text-xs text-slate-500">Risk: {acc.riskScore?.toFixed(1)}/300</div>
                                                     </div>
                                                     <div className={`text-[10px] px-2 py-1 rounded border ${acc.riskLevel === 'CRITICAL' ? 'bg-rose-500/10 border-rose-500/20 text-rose-500' : 'bg-cyber-primary/10 border-cyber-primary/20 text-cyber-primary'}`}>
                                                         {acc.riskLevel}
@@ -142,13 +163,38 @@ const Header = () => {
 
                 </div>
 
-                <div className="flex items-center gap-3 pl-4 border-l border-white/10">
+                <div className="flex items-center gap-3 pl-4 border-l border-white/10 relative" ref={profileRef}>
                     <div className="text-right hidden sm:block">
                         <p className="text-sm font-semibold">Admin SOC</p>
                     </div>
-                    <div className="w-10 h-10 rounded-xl bg-cyber-primary/10 border border-cyber-primary/20 flex items-center justify-center hover:bg-cyber-primary/20 transition-colors cursor-pointer shadow-[0_0_15px_rgba(249,115,22,0.15)]">
+                    <button
+                        onClick={() => setIsProfileOpen(!isProfileOpen)}
+                        className="w-10 h-10 rounded-xl bg-cyber-primary/10 border border-cyber-primary/20 flex items-center justify-center hover:bg-cyber-primary/20 transition-colors cursor-pointer shadow-[0_0_15px_rgba(249,115,22,0.15)]"
+                    >
                         <User size={20} className="text-cyber-primary" />
-                    </div>
+                    </button>
+
+                    {isProfileOpen && (
+                        <div className="absolute top-full right-0 mt-2 w-48 bg-[#131722] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-[100] animate-in fade-in slide-in-from-top-2">
+                            <button
+                                onClick={() => {
+                                    navigate('/profile');
+                                    setIsProfileOpen(false);
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-white/5 transition-colors font-semibold border-b border-white/5"
+                            >
+                                <User size={16} />
+                                View Profile
+                            </button>
+                            <button
+                                onClick={handleLogout}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-rose-500 hover:bg-white/5 transition-colors font-semibold"
+                            >
+                                <LogOut size={16} />
+                                Sign Out
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </header>

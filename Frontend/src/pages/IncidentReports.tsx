@@ -1,43 +1,55 @@
+import { useSOC } from '../context/SOCContext';
 import {
     FileText,
     Activity
 } from 'lucide-react';
 
 const IncidentReports = () => {
-    const reports = [
-        {
-            id: 'CASE-8291',
-            attackType: 'Credential Stuffing',
-            severity: 'CRITICAL',
-            riskScore: 92,
-            actionTaken: 'Locked',
-            aiSummary: 'Auth attempts from 42 unique IPs within 3 seconds for this account. Machine pattern confirms credential stuffing attack.'
-        },
-        {
-            id: 'CASE-8290',
-            attackType: 'Impossible Travel',
-            severity: 'HIGH',
-            riskScore: 78,
-            actionTaken: 'Flagged',
-            aiSummary: 'Session origin jumped from New York to London in 14 minutes. Physically impossible movement suggests session hijacking.'
-        },
-        {
-            id: 'CASE-8289',
-            attackType: 'Brute Force',
-            severity: 'HIGH',
-            riskScore: 85,
-            actionTaken: 'Locked',
-            aiSummary: 'Detected 15 failed password attempts within 60 seconds followed by a successful login. Classic brute force signature.'
-        },
-        {
-            id: 'CASE-8288',
-            attackType: 'Large Transaction',
-            severity: 'MEDIUM',
-            riskScore: 54,
-            actionTaken: 'Verification Sent',
-            aiSummary: 'Out-of-pattern withdrawal of $45,000 from an account that historically moves <$500. Awaiting MFA confirmation.'
-        },
-    ];
+    const { alerts } = useSOC();
+
+    const handleExport = () => {
+        if (alerts.length === 0) return;
+
+        const headers = ['Case ID', 'Date', 'Time', 'Attack Type', 'Severity', 'Holder Name', 'Account Number', 'Action Taken', 'SentinelX Analysis'];
+        const csvRows = [
+            headers.map(h => `"${h}"`).join(','),
+            ...alerts.map(a => {
+                const dateObj = new Date(a.timestamp);
+                const date = dateObj.toLocaleDateString();
+                const time = dateObj.toLocaleTimeString();
+                const actionTaken = a.severity === 'CRITICAL' ? 'ENFORCED_BLOCK' : 'ACTIVE_MONITORING';
+
+                return [
+                    `SENTINELX-${a.id}`,
+                    date,
+                    time,
+                    a.type,
+                    a.severity,
+                    a.holderName || 'Unknown',
+                    a.accountNumber || 'N/A',
+                    actionTaken,
+                    a.message || 'Baseline anomaly detected.'
+                ].map(val => {
+                    const str = String(val).replace(/"/g, '""').replace(/\n/g, ' ');
+                    return `"${str}"`;
+                }).join(',');
+            })
+        ];
+
+        // Add BOM for proper Excel UTF-8 rendering
+        const BOM = '\uFEFF';
+        const csvContent = BOM + csvRows.join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `sentinelx_incidents_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     return (
         <div className="space-y-8">
@@ -47,7 +59,11 @@ const IncidentReports = () => {
                     <p className="text-slate-500">Security event archive with AI-driven root cause analysis</p>
                 </div>
 
-                <button className="btn-primary flex items-center gap-2">
+                <button
+                    onClick={handleExport}
+                    disabled={alerts.length === 0}
+                    className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                     <FileText size={18} />
                     Export Case Data
                 </button>
@@ -58,22 +74,27 @@ const IncidentReports = () => {
                     <table className="w-full text-left">
                         <thead>
                             <tr className="border-b border-white/5 bg-white/[0.02]">
+                                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500">Timestamp</th>
                                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500">Attack Type</th>
                                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500">Severity</th>
-                                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 text-center">Risk Score</th>
                                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500 text-center">Action Taken</th>
                                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-slate-500">AI Summary (SentinelX Genesis)</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
-                            {reports.map((report) => (
+                            {alerts.map((report) => (
                                 <tr key={report.id} className="hover:bg-white/[0.02] transition-colors group">
+                                    <td className="px-6 py-5">
+                                        <span className="font-mono text-xs text-slate-400">
+                                            {new Date(report.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'medium' })}
+                                        </span>
+                                    </td>
                                     <td className="px-6 py-5">
                                         <div className="flex items-center gap-3">
                                             <div className={`w-2 h-2 rounded-full ${report.severity === 'CRITICAL' ? 'bg-rose-500 shadow-[0_0_8px_#f43f5e]' :
                                                 report.severity === 'HIGH' ? 'bg-amber-400 shadow-[0_0_8px_#fbbf24]' : 'bg-cyber-primary shadow-[0_0_8px_#10b981]'
                                                 }`} />
-                                            <span className="font-bold text-sm tracking-tight">{report.attackType}</span>
+                                            <span className="font-bold text-sm tracking-tight">{report.type}</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-5">
@@ -84,23 +105,29 @@ const IncidentReports = () => {
                                         </span>
                                     </td>
                                     <td className="px-6 py-5 text-center">
-                                        <span className="font-mono font-bold text-slate-300">{report.riskScore}</span>
-                                    </td>
-                                    <td className="px-6 py-5 text-center">
                                         <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/5 rounded-full">
                                             <Activity size={12} className="text-cyber-primary" />
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{report.actionTaken}</span>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                                {report.severity === 'CRITICAL' ? 'Blocked' : 'Investigating'}
+                                            </span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-5">
                                         <div className="p-3 rounded-xl bg-cyber-primary/5 border border-cyber-primary/10 group-hover:bg-cyber-primary/10 transition-colors">
                                             <p className="text-xs text-slate-400 leading-relaxed italic">
-                                                "{report.aiSummary}"
+                                                "{report.message}"
                                             </p>
                                         </div>
                                     </td>
                                 </tr>
                             ))}
+                            {alerts.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} className="py-12 text-center text-slate-500">
+                                        No active incident reports.
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>

@@ -35,7 +35,7 @@ const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
         <motion.aside
             initial={false}
             animate={{ width: collapsed ? 80 : 260 }}
-            className="bg-[#050508]/95 border-r border-white/5 flex flex-col h-screen sticky top-0 backdrop-blur-md z-20"
+            className="bg-[#050508]/95 border-r border-white/5 flex flex-col h-screen backdrop-blur-md z-20 shrink-0"
         >
             <div className="p-8 flex items-center gap-4 overflow-hidden border-b border-white/5 mb-4">
                 <div className="bg-cyber-primary/15 border border-cyber-primary/30 p-2.5 rounded-2xl shrink-0 shadow-[0_0_20px_rgba(249,115,22,0.15)] group/logo cursor-pointer relative">

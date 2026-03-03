@@ -1,4 +1,5 @@
 import { useParams, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { useSOC } from '../context/SOCContext';
 import { motion } from 'framer-motion';
 import {
@@ -20,15 +21,64 @@ import {
     ResponsiveContainer
 } from 'recharts';
 
+const API_BASE_URL = "http://localhost:8000/api";
+
 const AccountDetail = () => {
     const { id } = useParams();
-    const { sessions } = useSOC();
-    const session = sessions.find(s => s.id === id) || sessions[0];
+    const { sessions, lockdownAccount } = useSOC();
+    const fallbackSession = sessions.find(s => s.id === id) || sessions[0];
 
-    const mockTimeline = Array.from({ length: 20 }, (_, i) => ({
-        time: `T-${20 - i}`,
-        score: Math.max(0, Math.min(100, session.riskScore + (Math.random() * 20 - 10)))
-    }));
+    const [accountData, setAccountData] = useState<any>(null);
+    const [events, setEvents] = useState<any[]>([]);
+    const [incidents, setIncidents] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!id) return;
+
+        const fetchDetails = async () => {
+            try {
+                const res = await fetch(`${API_BASE_URL}/accounts/${id}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setAccountData(data.account);
+                    setEvents(data.recent_events || []);
+                    setIncidents(data.incident_history || []);
+                }
+            } catch (err) {
+                console.error("Failed to fetch account details", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchDetails();
+    }, [id]);
+
+    const session = accountData ? {
+        id: accountData.id,
+        accountNumber: accountData.account_number,
+        bank: 'SentinelX Internal',
+        riskScore: accountData.risk_score,
+        riskLevel: accountData.risk_level.toUpperCase() === 'SAFE' ? 'LOW' : accountData.risk_level.toUpperCase(),
+        status: (accountData.account_status || 'active').toLowerCase() === 'active' ? 'Active' : accountData.account_status,
+        device: accountData.baseline_primary_device || 'Unknown',
+        location: accountData.baseline_primary_location || 'Unknown'
+    } : fallbackSession;
+
+    // Use actual events for timeline if available, otherwise mock
+    const timelineData = events.length > 0
+        ? [...events].reverse().map(e => ({
+            time: new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            score: e.risk_contribution || 0
+        }))
+        : Array.from({ length: 20 }, (_, i) => ({
+            time: `T-${20 - i}`,
+            score: Math.max(0, Math.min(300, (session?.riskScore || 0) + (Math.random() * 20 - 10)))
+        }));
+
+    if (loading) {
+        return <div className="text-center py-20 text-cyber-primary animate-pulse">Loading forensics data...</div>;
+    }
 
     return (
         <div className="space-y-8 pb-12">
@@ -74,18 +124,18 @@ const AccountDetail = () => {
                                         fill="transparent"
                                         strokeDasharray={364.4}
                                         initial={{ strokeDashoffset: 364.4 }}
-                                        animate={{ strokeDashoffset: 364.4 - (364.4 * session.riskScore) / 100 }}
+                                        animate={{ strokeDashoffset: 364.4 - (364.4 * session.riskScore) / 300 }}
                                         transition={{ duration: 1.5, ease: "easeOut" }}
                                         className={
-                                            session.riskScore >= 80 ? 'text-rose-500' :
-                                                session.riskScore >= 50 ? 'text-cyber-primary' :
-                                                    session.riskScore >= 20 ? 'text-emerald-400' : 'text-cyber-primary'
+                                            session.riskScore >= 240 ? 'text-rose-500' :
+                                                session.riskScore >= 180 ? 'text-amber-500' :
+                                                    session.riskScore >= 90 ? 'text-emerald-400' : 'text-cyber-primary'
                                         }
                                     />
                                 </svg>
                                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                    <span className="text-3xl font-bold font-mono">{session.riskScore}</span>
-                                    <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Risk</span>
+                                    <span className="text-3xl font-bold font-mono">{session.riskScore?.toFixed(1)}</span>
+                                    <span className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">Risk / 300</span>
                                 </div>
                             </div>
 
@@ -125,9 +175,13 @@ const AccountDetail = () => {
                         </div>
                     </motion.div>
 
-                    <button className="w-full py-4 rounded-2xl bg-cyber-primary/10 border border-cyber-primary/20 text-cyber-primary font-bold hover:bg-cyber-primary/20 transition-all flex items-center justify-center gap-3">
+                    <button
+                        onClick={() => id && lockdownAccount(id)}
+                        disabled={session.status === 'Locked'}
+                        className="w-full py-4 rounded-2xl bg-cyber-primary/10 border border-cyber-primary/20 text-cyber-primary font-bold hover:bg-cyber-primary/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                         <ShieldAlert size={18} />
-                        IMMEDIATE LOCKDOWN
+                        {session.status === 'Locked' ? 'ACCOUNT SECURED' : 'IMMEDIATE LOCKDOWN'}
                     </button>
                 </div>
 
@@ -144,24 +198,25 @@ const AccountDetail = () => {
                         </div>
                         <div className="h-[250px] w-full">
                             <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={mockTimeline}>
+                                <AreaChart data={timelineData}>
                                     <defs>
                                         <linearGradient id="detailGradient" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor={session.riskScore >= 50 ? '#f43f5e' : '#10b981'} stopOpacity={0.3} />
-                                            <stop offset="95%" stopColor={session.riskScore >= 50 ? '#f43f5e' : '#10b981'} stopOpacity={0} />
+                                            <stop offset="5%" stopColor={session.riskScore >= 180 ? '#f43f5e' : '#10b981'} stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor={session.riskScore >= 180 ? '#f43f5e' : '#10b981'} stopOpacity={0} />
                                         </linearGradient>
                                     </defs>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
-                                    <XAxis dataKey="time" hide />
+                                    <XAxis dataKey="time" hide={events.length === 0} stroke="#475569" fontSize={10} tickMargin={10} />
                                     <YAxis stroke="#475569" fontSize={12} tickLine={false} axisLine={false} />
                                     <Tooltip
                                         contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', fontSize: '12px' }}
                                         itemStyle={{ color: '#fff' }}
+                                        formatter={(val: number | any) => val ? Number(val).toFixed(1) : "0.0"}
                                     />
                                     <Area
                                         type="monotone"
                                         dataKey="score"
-                                        stroke={session.riskScore >= 50 ? '#f43f5e' : '#10b981'}
+                                        stroke={session.riskScore >= 180 ? '#f43f5e' : '#10b981'}
                                         strokeWidth={3}
                                         fillOpacity={1}
                                         fill="url(#detailGradient)"
@@ -211,20 +266,34 @@ const AccountDetail = () => {
                                 <Globe className="text-blue-500" size={18} />
                                 Incident History
                             </h2>
-                            <div className="space-y-4">
-                                {[
-                                    { time: '12:44:01', event: 'Impossible Travel Detected', meta: 'NY -> London (10m)' },
-                                    { time: '12:40:12', event: 'Multiple Login Failures', meta: '8 attempts/min' },
-                                    { time: '11:15:33', event: 'Successful Login', meta: 'New IP: 185.x.x.x' },
-                                ].map((log, i) => (
+                            <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                {events.length > 0 ? events.map((event, i) => (
                                     <div key={i} className="flex flex-col border-l-2 border-white/5 pl-4 pb-2">
                                         <div className="flex items-center justify-between mb-1">
-                                            <span className="text-xs font-bold text-slate-200">{log.event}</span>
-                                            <span className="text-[10px] font-mono text-slate-500">{log.time}</span>
+                                            <span className="text-xs font-bold text-slate-200 uppercase tracking-widest">{event.event_type.replace('_', ' ')}</span>
+                                            <span className="text-[10px] font-mono text-slate-500">
+                                                {new Date(event.timestamp).toLocaleTimeString()}
+                                            </span>
                                         </div>
-                                        <span className="text-[10px] text-slate-500 uppercase tracking-widest">{log.meta}</span>
+                                        <span className="text-[10px] text-slate-500 uppercase tracking-widest">
+                                            Location: {event.location} | IP: {event.ip_address}
+                                        </span>
                                     </div>
-                                ))}
+                                )) : (
+                                    incidents.length > 0 ? incidents.map((inc, i) => (
+                                        <div key={i} className="flex flex-col border-l-2 border-rose-500/50 pl-4 pb-2">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-xs font-bold text-rose-400">{inc.attack_type}</span>
+                                                <span className="text-[10px] font-mono text-slate-500">
+                                                    {new Date(inc.created_at).toLocaleTimeString()}
+                                                </span>
+                                            </div>
+                                            <span className="text-[10px] text-slate-500 uppercase tracking-widest">Severity: {inc.severity}</span>
+                                        </div>
+                                    )) : (
+                                        <div className="text-xs text-slate-500 pb-2">No recorded incidents or events found in forensic DB.</div>
+                                    )
+                                )}
                             </div>
                         </motion.div>
                     </div>
