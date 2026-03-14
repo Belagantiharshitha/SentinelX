@@ -10,6 +10,8 @@ class IncidentBase(BaseModel):
     action_taken: str
     ai_summary: Optional[str]
     status: str
+    ml_fraud_score: Optional[float] = None
+    ml_explanation: Optional[str] = None
 
 class IncidentResponse(IncidentBase):
     id: int

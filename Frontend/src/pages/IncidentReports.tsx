@@ -98,11 +98,21 @@ const IncidentReports = () => {
                                         </div>
                                     </td>
                                     <td className="px-6 py-5">
-                                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-[0.2em] ${report.severity === 'CRITICAL' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' :
-                                            report.severity === 'HIGH' ? 'bg-amber-400/10 text-amber-400 border border-amber-400/20' : 'bg-cyber-primary/10 text-cyber-primary border border-cyber-primary/20'
-                                            }`}>
-                                            {report.severity}
-                                        </span>
+                                        <div className="flex flex-col gap-2">
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-[0.2em] w-fit ${report.severity === 'CRITICAL' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' :
+                                                report.severity === 'HIGH' ? 'bg-amber-400/10 text-amber-400 border border-amber-400/20' : 'bg-cyber-primary/10 text-cyber-primary border border-cyber-primary/20'
+                                                }`}>
+                                                {report.severity}
+                                            </span>
+                                            {report.mlFraudScore != null && (
+                                                <div className="flex items-center gap-2 bg-gradient-to-r from-purple-600/20 to-violet-600/10 border border-purple-500/30 px-3 py-1 rounded-full w-fit shadow-[0_0_10px_rgba(168,85,247,0.15)] mt-2">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+                                                    <span className="text-[10px] font-black text-purple-200 uppercase tracking-[0.1em]">
+                                                        SENTINELX ML: {Math.round(report.mlFraudScore * 100)}%
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-5 text-center">
                                         <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/5 rounded-full">
@@ -113,10 +123,17 @@ const IncidentReports = () => {
                                         </div>
                                     </td>
                                     <td className="px-6 py-5">
-                                        <div className="p-3 rounded-xl bg-cyber-primary/5 border border-cyber-primary/10 group-hover:bg-cyber-primary/10 transition-colors">
+                                        <div className="p-3 rounded-xl bg-cyber-primary/5 border border-cyber-primary/10 group-hover:bg-cyber-primary/10 transition-colors space-y-2">
                                             <p className="text-xs text-slate-400 leading-relaxed italic">
                                                 "{report.message}"
                                             </p>
+                                            {report.mlExplanation && (
+                                                <div className="flex items-center gap-2 pt-1 border-t border-white/5">
+                                                    <span className="text-[9px] font-black text-violet-400 uppercase tracking-widest bg-violet-500/10 px-2 py-0.5 rounded">
+                                                        ML Root Cause: {report.mlExplanation}
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>

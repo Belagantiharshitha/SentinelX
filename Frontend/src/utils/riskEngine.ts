@@ -20,6 +20,8 @@ export interface SuspiciousAlert {
     message: string;
     holderName?: string;
     accountNumber?: string;
+    mlFraudScore?: number;
+    mlExplanation?: string;
 }
 
 export const getRiskLevel = (score: number): UserSession['riskLevel'] => {

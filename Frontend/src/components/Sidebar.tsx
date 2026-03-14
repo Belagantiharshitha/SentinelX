@@ -48,7 +48,7 @@ const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
                         animate={{ opacity: 1, x: 0 }}
                         className="flex flex-col gap-0"
                     >
-                        <span className="font-black text-xl tracking-[-0.03em] text-white selection:bg-cyber-primary/40 leading-none">
+                        <span className="font-black text-xl text-white selection:bg-cyber-primary/40 leading-none">
                             SENTINEL<span className="text-cyber-primary">X</span>
                         </span>
                     </motion.div>
@@ -75,7 +75,7 @@ const Sidebar = ({ collapsed, setCollapsed }: SidebarProps) => {
                                     <motion.span
                                         initial={{ opacity: 0 }}
                                         animate={{ opacity: 1 }}
-                                        className={cn("whitespace-nowrap text-sm tracking-tight", isActive ? "font-black" : "font-semibold")}
+                                        className={cn("whitespace-nowrap text-sm", isActive ? "font-black" : "font-semibold")}
                                     >
                                         {item.label}
                                     </motion.span>

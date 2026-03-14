@@ -6,7 +6,7 @@ from .database.db import engine, Base, SessionLocal
 from .database import models
 from .database.seed import seed_database
 
-from .routes import dashboard, accounts, events, incidents, simulate
+from .routes import dashboard, accounts, events, incidents, simulate, ml_routes, mail
 
 # Create FastAPI app
 app = FastAPI(title=settings.PROJECT_NAME)
@@ -18,6 +18,15 @@ Base.metadata.create_all(bind=engine)
 db = SessionLocal()
 try:
     seed_database(db)
+finally:
+    db.close()
+
+# ✅ Initialize ML Model (train if needed)
+from .services.ml_model import fraud_model
+db = SessionLocal()
+try:
+    if not fraud_model.is_trained:
+        fraud_model.train(db)
 finally:
     db.close()
 
@@ -36,6 +45,8 @@ app.include_router(accounts.router, prefix="/api/accounts", tags=["Accounts"])
 app.include_router(events.router, prefix="/api/events", tags=["Events"])
 app.include_router(incidents.router, prefix="/api/incidents", tags=["Incidents"])
 app.include_router(simulate.router, prefix="/api/simulate", tags=["Simulate"])
+app.include_router(ml_routes.router, prefix="/api/ml", tags=["ML Model"])
+app.include_router(mail.router, prefix="/api/mail", tags=["Mock Mailbox"])
 
 # ✅ Health Check
 @app.get("/health")

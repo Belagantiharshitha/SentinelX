@@ -169,7 +169,7 @@ const AccountDetail = () => {
                                         <MapPin size={16} />
                                         <span className="text-xs font-medium uppercase tracking-wider">Location</span>
                                     </div>
-                                    <span className="text-xs font-bold">{session.location.split(',')[0]}</span>
+                                    <span className="text-xs font-bold truncate max-w-[120px]" title={session.location}>{session.location}</span>
                                 </div>
                             </div>
                         </div>
@@ -275,7 +275,7 @@ const AccountDetail = () => {
                                                 {new Date(event.timestamp).toLocaleTimeString()}
                                             </span>
                                         </div>
-                                        <span className="text-[10px] text-slate-500 uppercase tracking-widest">
+                                        <span className="text-[10px] text-slate-500 uppercase tracking-widest block truncate" title={event.location}>
                                             Location: {event.location} | IP: {event.ip_address}
                                         </span>
                                     </div>

@@ -5,7 +5,8 @@ from ..database import models
 from ..services.risk_engine import evaluate_risk
 from ..services.attack_detection import detect_attacks
 from ..services.response_engine import process_automated_response
-from datetime import datetime, timedelta
+from ..services.ml_model import fraud_model
+from datetime import datetime, timedelta, timezone
 
 router = APIRouter()
 
@@ -17,6 +18,8 @@ def run_simulation(db: Session, account_id: int, events: list):
     results = []
     final_attack_results = {"detected_attacks": [], "attack_contribution": 0}
     final_risk_results = {}
+    max_ml_fraud_score = 0.0
+    all_ml_explanations = []
 
     for event_data in events:
         # 1. Save Event First
@@ -31,7 +34,7 @@ def run_simulation(db: Session, account_id: int, events: list):
 
         event_dict_with_id = {**event_data, "id": new_event.id}
 
-        # 2. Detect Attacks
+        # 2. Detect Attacks (Rule-based)
         attack_results = detect_attacks(db, account.id, event_dict_with_id)
         # Aggregate for the final step
         for attack in attack_results["detected_attacks"]:
@@ -39,13 +42,23 @@ def run_simulation(db: Session, account_id: int, events: list):
                 final_attack_results["detected_attacks"].append(attack)
         final_attack_results["attack_contribution"] = max(final_attack_results["attack_contribution"], attack_results["attack_contribution"])
         
-        # 3. Evaluate Risk
-        risk_results = evaluate_risk(account, event_data, attack_results["attack_contribution"])
+        # 2.5 ML Fraud Prediction
+        ml_prediction = fraud_model.predict(event_data, db=db, account=account)
+        ml_score = ml_prediction["fraud_probability"]
+        max_ml_fraud_score = max(max_ml_fraud_score, ml_score)
+        if ml_prediction.get("explanation"):
+            for exp in ml_prediction["explanation"]:
+                if exp not in all_ml_explanations:
+                    all_ml_explanations.append(exp)
+        
+        # 3. Evaluate Risk (Baseline + Attacks + ML)
+        risk_results = evaluate_risk(account, event_data, attack_results["attack_contribution"], ml_score)
         final_risk_results = risk_results
         
         # 4. Update Event
         new_event.risk_contribution = risk_results["new_risk_score"]
         new_event.detected_attack_type = ", ".join(attack_results["detected_attacks"])
+        new_event.ml_fraud_score = ml_score
         
         # 5. Update Account Risk
         account.risk_score = risk_results["new_risk_score"]
@@ -55,11 +68,15 @@ def run_simulation(db: Session, account_id: int, events: list):
             "event": event_data["event_type"],
             "risk_score": risk_results["new_risk_score"],
             "risk_level": risk_results["risk_level"],
-            "attacks": attack_results["detected_attacks"]
+            "attacks": attack_results["detected_attacks"],
+            "ml_fraud_score": ml_score,
+            "ml_is_anomaly": ml_prediction["is_anomaly"]
         })
     
     # 6. Trigger ONE Automated Response at the end of simulation
-    action_taken = process_automated_response(db, account, final_risk_results, final_attack_results)
+    # Use the max ML score and collected explanations for the incident report
+    final_risk_results["ml_fraud_score"] = max_ml_fraud_score
+    action_taken = process_automated_response(db, account, final_risk_results, final_attack_results, ml_explanation=all_ml_explanations)
     
     db.commit()
     db.refresh(account)
@@ -71,6 +88,7 @@ def run_simulation(db: Session, account_id: int, events: list):
         "final_status": account.account_status,
         "detected_attacks": final_attack_results["detected_attacks"],
         "action_taken": action_taken,
+        "ml_fraud_score": max_ml_fraud_score,
         "simulation_steps": results
     }
 
@@ -129,3 +147,22 @@ async def simulate_bank_corruption(account_id: int, db: Session = Depends(get_db
         {"event_type": "status_change", "ip_address": "internal-admin", "device": "Core-Server", "location": "Data Center", "timestamp": now}
     ]
     return run_simulation(db, account_id, events)
+@router.post("/reset-account")
+async def reset_account_security(account_number: str, db: Session = Depends(get_db)):
+    account = db.query(models.Account).filter(models.Account.account_number == account_number).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    # 1. Reset Account metrics
+    account.risk_score = 0.0
+    account.risk_level = "Safe"
+    account.account_status = "Active"
+    
+    # 2. Delete associated alerts/incidents
+    db.query(models.Incident).filter(models.Incident.account_id == account_id).delete()
+    
+    # 3. Optional: Delete events to clear the timeline completely for the demo
+    db.query(models.Event).filter(models.Event.account_id == account_id).delete()
+    
+    db.commit()
+    return {"status": "success", "message": f"Security status for {account.account_number} has been hard-reset."}

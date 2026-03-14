@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from ..database.models import Event, Account
 from sqlalchemy import func
@@ -6,12 +6,21 @@ from sqlalchemy import func
 def detect_attacks(db: Session, account_id: int, current_event: dict) -> dict:
     detected_attacks = []
     total_contribution = 0.0
-    now = current_event.get("timestamp", datetime.utcnow())
+    now = current_event.get("timestamp")
+    if now:
+        # If string, parse it. If aware, make naive UTC.
+        if isinstance(now, str):
+            now = datetime.fromisoformat(now.replace("Z", "+00:00"))
+        if now.tzinfo is not None:
+             now = now.astimezone(timezone.utc).replace(tzinfo=None)
+    else:
+        now = datetime.utcnow()
 
     # 1. Credential Stuffing & Brute Force & Account Takeover overlap logic:
     # We should evaluate them from most complex/severe to least, to avoid overlap.
     
-    # Check Account Takeover first
+    # 1. Account Takeover (High severity)
+    # Check if a transaction occurs shortly after a successful login that was preceded by failures
     is_takeover = False
     if current_event.get("event_type") == "transaction":
         recent_success_login = db.query(Event).filter(
@@ -25,15 +34,15 @@ def detect_attacks(db: Session, account_id: int, current_event: dict) -> dict:
                 Event.account_id == account_id,
                 Event.event_type == "login_failed",
                 Event.timestamp < recent_success_login.timestamp,
-                Event.timestamp >= (recent_success_login.timestamp - timedelta(minutes=30))
+                Event.timestamp >= (recent_success_login.timestamp - timedelta(minutes=60))
             ).count()
             
-            if prior_failures >= 2 and current_event.get("transaction_amount", 0) > 1000:
+            if prior_failures >= 3 and current_event.get("transaction_amount", 0) > 1000:
                 detected_attacks.append("Account Takeover")
-                total_contribution += 40
+                total_contribution += 80
                 is_takeover = True
 
-    # Check Brute Force (High frequency from same IP)
+    # 2. Brute Force (High frequency from same IP)
     is_brute_force = False
     one_min_ago = now - timedelta(seconds=65)
     ip_address = current_event.get("ip_address")
@@ -43,13 +52,12 @@ def detect_attacks(db: Session, account_id: int, current_event: dict) -> dict:
             Event.ip_address == ip_address,
             Event.timestamp >= one_min_ago
         ).count()
-        if ip_failed_logins >= 6:
+        if ip_failed_logins >= 5:
             detected_attacks.append("Brute Force")
-            total_contribution += 30
+            total_contribution += 40
             is_brute_force = True
 
-    # Check Credential Stuffing (Multiple attempts on SAME account)
-    # Only if NOT a brute force to avoid double tagging the same sequence
+    # 3. Credential Stuffing (Multiple attempts from different IPs on same account)
     if not is_brute_force:
         two_mins_ago = now - timedelta(seconds=125)
         failed_logins = db.query(Event).filter(
@@ -58,36 +66,36 @@ def detect_attacks(db: Session, account_id: int, current_event: dict) -> dict:
             Event.timestamp >= two_mins_ago
         ).count()
         
-        if failed_logins >= 3:
+        if failed_logins >= 4:
             detected_attacks.append("Credential Stuffing")
-            total_contribution += 25
+            total_contribution += 35
 
     # 4. Impossible Travel
-    # fetch the last event that is NOT the current event (which was just inserted)
-    last_event = db.query(Event).filter(
+    last_valuable_event = db.query(Event).filter(
         Event.account_id == account_id,
         Event.id != current_event.get("id"),
         Event.event_type.in_(["login_success", "transaction", "status_change"])
     ).order_by(Event.timestamp.desc()).first()
     
     current_location = current_event.get("location")
-    if last_event and last_event.location and current_location:
-        if last_event.location != "Unknown" and current_location != "Unknown" and last_event.location != current_location:
-            time_diff = (now - last_event.timestamp).total_seconds() / 60
-            if time_diff < 30: # Simplified travel check: different location within 30 mins
+    if last_valuable_event and last_valuable_event.location and current_location:
+        if last_valuable_event.location != "Unknown" and current_location != "Unknown" and last_valuable_event.location != current_location:
+            time_diff = (now - last_valuable_event.timestamp).total_seconds() / 60
+            if time_diff < 15: # Different location within 15 minutes
                 detected_attacks.append("Impossible Travel")
-                total_contribution += 35
+                total_contribution += 50
 
     # 5. Transaction Anomaly
-    if current_event.get("event_type") == "transaction" and current_event.get("transaction_amount", 0) > 5000:
-        detected_attacks.append("Transaction Anomaly")
-        total_contribution += 25
+    if current_event.get("event_type") == "transaction":
+        amount = current_event.get("transaction_amount", 0)
+        if amount > 5000:
+            detected_attacks.append("Transaction Anomaly")
+            total_contribution += 45
 
     # 6. Bank Corruption (Systemic Status Changes or Internal Data Inconsistency)
-    if current_event.get("event_type") == "status_change":
-        # Check if status was changed to 'locked' or 'flagged' without typical prior flags
+    if current_event.get("event_type") == "corruption_event" or current_event.get("event_type") == "status_change":
         detected_attacks.append("Bank Corruption")
-        total_contribution += 100 # Instant critical
+        total_contribution += 150 # Critical systemic risk
 
     return {
         "detected_attacks": list(set(detected_attacks)),

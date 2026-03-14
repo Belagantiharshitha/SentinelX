@@ -30,7 +30,7 @@ const Alerts = () => {
         <div className="space-y-8">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-black tracking-[-0.04em] text-white italic">
+                    <h1 className="text-3xl font-black text-white italic">
                         SENTINEL<span className="text-cyber-primary">X</span> THREATS
                     </h1>
                     <p className="text-slate-500 font-bold uppercase tracking-[0.3em] text-[10px] mt-1 ml-1">

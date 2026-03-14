@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, DateTime, Float, ForeignKey, Ind
 from sqlalchemy.orm import relationship
 from .db import Base
 import datetime
+from datetime import timezone
 
 
 # ❌ Remove Bank class completely for now
@@ -17,6 +18,8 @@ class Account(Base):
 
     account_number = Column(String, unique=True, index=True)
     holder_name = Column(String)
+    email = Column(String, unique=True, index=True)
+    password = Column(String)
 
     # Baselines
     baseline_avg_transaction = Column(Float, default=0.0)
@@ -24,6 +27,10 @@ class Account(Base):
     baseline_primary_location = Column(String, nullable=True)
     baseline_login_start_hour = Column(Integer, default=0)
     baseline_login_end_hour = Column(Integer, default=23)
+
+    # MFA (TOTP)
+    totp_secret = Column(String, nullable=True)
+    totp_enabled = Column(Integer, default=0) # SQLite uses 0/1 for False/True
 
     # Risk Metrics
     reputation_score = Column(Float, default=0.0)
@@ -33,8 +40,8 @@ class Account(Base):
     account_status = Column(String, default="active")
     updated_at = Column(
         DateTime,
-        default=datetime.datetime.utcnow,
-        onupdate=datetime.datetime.utcnow
+        default=lambda: datetime.datetime.utcnow(),
+        onupdate=lambda: datetime.datetime.utcnow()
     )
 
     events = relationship("Event", back_populates="account")
@@ -53,10 +60,14 @@ class Event(Base):
     device = Column(String)
     location = Column(String)
     transaction_amount = Column(Float, nullable=True)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+    timestamp = Column(DateTime, default=lambda: datetime.datetime.utcnow(), index=True)
 
     risk_contribution = Column(Float, default=0.0)
     detected_attack_type = Column(String, nullable=True)
+    ml_fraud_score = Column(Float, nullable=True)
+    ml_explanation = Column(String, nullable=True)
+    ml_pca_x = Column(Float, nullable=True)
+    ml_pca_y = Column(Float, nullable=True)
 
     account = relationship("Account", back_populates="events")
 
@@ -72,12 +83,39 @@ class Incident(Base):
     final_risk_score = Column(Float)
     action_taken = Column(String)
     ai_summary = Column(Text, nullable=True)
+    ml_fraud_score = Column(Float, nullable=True)
+    ml_explanation = Column(String, nullable=True)
 
-    created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.utcnow(), index=True)
     status = Column(String, default="open")
 
     account = relationship("Account", back_populates="incidents")
 
+
+class MockEmail(Base):
+    __tablename__ = "mock_emails"
+
+    id = Column(Integer, primary_key=True, index=True)
+    to_email = Column(String, index=True)
+    subject = Column(String)
+    html_content = Column(Text)
+    created_at = Column(DateTime, default=lambda: datetime.datetime.utcnow(), index=True)
+    is_read = Column(Integer, default=0) # 0 for false, 1 for true
+
+
+class DeviceAuthRequest(Base):
+    __tablename__ = "device_auth_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    account_id = Column(Integer, ForeignKey("accounts.id"), index=True)
+    device = Column(String)
+    location = Column(String)
+    token = Column(String, unique=True, index=True)
+    status = Column(String, default="pending") # pending, approved, denied
+    created_at = Column(DateTime, default=lambda: datetime.datetime.utcnow())
+    expires_at = Column(DateTime)
+    
+    account = relationship("Account")
 
 Index("ix_events_account_timestamp", Event.account_id, Event.timestamp)
 Index("ix_incidents_account_created", Incident.account_id, Incident.created_at)

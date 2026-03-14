@@ -6,6 +6,8 @@ from typing import Optional
 class AccountBase(BaseModel):
     account_number: str
     holder_name: str
+    email: str
+    password: str
     baseline_avg_transaction: float
     baseline_primary_device: Optional[str] = None
     baseline_primary_location: Optional[str] = None
@@ -13,8 +15,13 @@ class AccountBase(BaseModel):
     baseline_login_end_hour: int
 
 
+class AccountLogin(BaseModel):
+    email: str
+    password: str
+
 class AccountResponse(AccountBase):
     id: int
+    email: str
     risk_score: float
     risk_level: str
     account_status: str

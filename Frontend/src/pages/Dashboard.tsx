@@ -18,390 +18,447 @@ import {
     CartesianGrid,
     Tooltip,
     ResponsiveContainer,
-    PieChart,
-    Pie,
+    ScatterChart,
+    Scatter,
+    ZAxis,
+    ReferenceLine,
     Cell
 } from 'recharts';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs: ClassValue[]) {
+    return twMerge(clsx(inputs));
+}
 
 const Dashboard = () => {
     const { sessions, alerts, systemStatus, dashboardData } = useSOC();
 
-    const highRiskCount = sessions.filter(s => s.riskLevel === 'HIGH' || s.riskLevel === 'CRITICAL').length;
-    const avgRisk = sessions.length > 0
-        ? (sessions.reduce((acc, s) => acc + s.riskScore, 0) / sessions.length).toFixed(1)
-        : "0.0";
-
-    const pieData = [
-        { name: 'Low', value: sessions.filter(s => s.riskLevel === 'LOW').length, color: '#34d399' },
-        { name: 'Medium', value: sessions.filter(s => s.riskLevel === 'MEDIUM').length, color: '#10b981' },
-        { name: 'High', value: sessions.filter(s => s.riskLevel === 'HIGH').length, color: '#059669' },
-        { name: 'Critical', value: sessions.filter(s => s.riskLevel === 'CRITICAL').length, color: '#dc2626' },
-    ];
 
     const systemHealthDisplay = dashboardData?.system_health?.status === 'ok'
-        ? '100%'
-        : (dashboardData?.system_health ? 'Degraded' : 'Loading...');
+        ? '99.9%'
+        : (dashboardData?.system_health ? 'DEGRADED' : 'ANALYZING...');
+
+    const highRiskCount = sessions.filter(s => s.riskLevel === 'HIGH' || s.riskLevel === 'CRITICAL').length;
 
     const stats = [
-        { label: 'Total Accounts', value: sessions.length, icon: Users, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-        { label: 'Accounts at Risk', value: highRiskCount, icon: ShieldAlert, color: 'text-cyber-primary', bg: 'bg-cyber-primary/10' },
-        { label: 'Open Incidents', value: alerts.length, icon: AlertTriangle, color: 'text-rose-500', bg: 'bg-rose-500/10' },
-        { label: 'System Health', value: systemHealthDisplay, icon: ShieldCheck, color: 'text-cyber-primary', bg: 'bg-cyber-primary/10' },
+        { label: 'Network Entities', value: sessions.length, icon: Users, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+        { label: 'High Risk Nodes', value: highRiskCount, icon: ShieldAlert, color: 'text-rose-500', bg: 'bg-rose-500/10' },
+        { label: 'Active Threats', value: alerts.length, icon: AlertTriangle, color: 'text-amber-500', bg: 'bg-amber-500/10' },
+        { label: 'Integrity Index', value: systemHealthDisplay, icon: ShieldCheck, color: 'text-cyan-500', bg: 'bg-cyan-500/10' },
     ];
 
-    // Format chart data using the random accounts from dashboard overview
-    const displayAccounts = dashboardData?.random_accounts || sessions.slice(0, 10);
+    const displayAccounts = dashboardData?.random_accounts || sessions.slice(0, 8);
 
     const chartData = displayAccounts.map((s: any) => {
         const date = new Date(s.updated_at || Date.now());
         const timeStr = isNaN(date.getTime()) ? 'N/A' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        return { name: s.holder_name?.split(' ')[0] || 'User', score: s.risk_score || 0, time: timeStr };
+        return { name: s.holder_name?.split(' ')[0] || 'Node', score: s.risk_score || 0, time: timeStr };
     });
 
-
     return (
-        <div className="space-y-8">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div>
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="h-6 w-1 bg-cyber-primary rounded-full" />
-                        <h1 className="text-4xl font-black tracking-[-0.04em] text-white italic">
-                            SENTINEL<span className="text-cyber-primary">X</span> DASHBOARD
+        <div className="space-y-12 pb-10">
+            {/* Elegant Title Section */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
+                <div className="space-y-0.5">
+                    <div className="flex items-center gap-3">
+                        <motion.div
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            className="w-1.5 h-6 bg-cyber-primary rounded-full shadow-[0_0_15px_rgba(16,185,129,0.5)]"
+                        />
+                        <h1 className="text-3xl font-bold text-white tracking-tight">
+                            SENTINEL<span className="text-cyber-primary">X</span>
                         </h1>
                     </div>
-                    <p className="text-slate-500 font-bold uppercase tracking-[0.3em] text-[10px] ml-4">
-                        <span className="text-cyber-primary">GENESIS AI</span> // INTELLIGENT THREAT DETECTION
+                    <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-[9px] ml-4">
+                        <span className="text-cyber-primary">GENESIS</span> // BEHAVIORAL INTELLIGENCE
                     </p>
-                </div>
-                <div className="flex gap-4">
-                    <div className="bg-cyber-primary/5 border border-cyber-primary/20 rounded-2xl px-5 py-3 flex items-center gap-3 shadow-[0_0_20px_rgba(16,185,129,0.05)]">
-                        <div className="relative">
-                            <span className="absolute inset-0 bg-cyber-primary rounded-full animate-ping opacity-75" />
-                            <span className="relative block w-2.5 h-2.5 bg-cyber-primary rounded-full shadow-[0_0_10px_#10b981]" />
-                        </div>
-                        <span className="text-[10px] font-black uppercase tracking-[0.25em] text-cyber-primary">Global Link Active</span>
-                    </div>
                 </div>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full min-w-0">
+            {/* Premium Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {stats.map((stat, i) => (
                     <motion.div
                         key={stat.label}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.1 }}
-                        className="glass-card p-6 flex flex-col justify-between"
+                        className="glass-card p-6 group flex flex-col items-start"
                     >
-                        <div className="flex items-center justify-between mb-8">
-                            <div className={`${stat.bg} p-3 rounded-2xl border border-white/5 shadow-inner`}>
-                                <stat.icon className={stat.color} size={28} />
-                            </div>
-                            <div className="flex flex-col items-end">
-                                <span className="text-[9px] font-black text-slate-600 uppercase tracking-[0.3em]">Status</span>
-                                <span className="text-[9px] font-black text-cyber-primary uppercase tracking-[0.3em] animate-pulse">Running</span>
+                        <div className="mb-4">
+                            <div className={`${stat.bg} p-3 rounded-2xl border border-white/5 group-hover:scale-105 transition-transform duration-500`}>
+                                <stat.icon className={stat.color} size={24} strokeWidth={2} />
                             </div>
                         </div>
-                        <div>
-                            <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mb-1">{stat.label}</p>
-                            <h3 className="text-4xl font-black text-white tracking-tighter">{stat.value}</h3>
-                        </div>
-                        <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
-                            <div className="flex gap-1">
-                                {[1, 2, 3, 4, 5].map(v => <div key={v} className={`w-3 h-1 rounded-full ${v < 5 ? 'bg-cyber-primary/20' : 'bg-cyber-primary/40'}`} />)}
-                            </div>
-                            <span className="text-[9px] font-bold text-slate-700">LVL {i + 1}</span>
+                        <div className="space-y-1">
+                            <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">{stat.label}</p>
+                            <h3 className="text-3xl font-black text-white tabular-nums tracking-tight">{stat.value}</h3>
                         </div>
                     </motion.div>
                 ))}
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 w-full min-w-0">
-                {/* Risk Distribution Chart */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Major Activity Chart */}
                 <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="lg:col-span-2 glass-card p-8"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="lg:col-span-2 glass-card p-10"
                 >
-                    <div className="flex items-center justify-between mb-8">
-                        <h2 className="text-xl font-bold">Threat Distribution Activity</h2>
-                        <select className="bg-white/5 border border-white/10 rounded-lg px-3 py-1 text-xs outline-none">
-                            <option>Last 24 Hours</option>
-                            <option>Last 7 Days</option>
-                        </select>
+                    <div className="flex items-center justify-between mb-10">
+                        <div>
+                            <h2 className="text-2xl font-black tracking-tight mb-1">Threat Trajectory</h2>
+                            <p className="text-xs text-slate-500 font-medium uppercase tracking-widest">Anomaly patterns per localized node</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 text-[10px] font-bold text-cyber-primary bg-cyber-primary/10 px-3 py-1.5 rounded-full border border-cyber-primary/20">
+                                <div className="w-1.5 h-1.5 rounded-full bg-cyber-primary animate-pulse" />
+                                LIVE FEED
+                            </div>
+                        </div>
                     </div>
-                    <div className="h-[300px] w-full">
+                    <div className="h-[350px] w-full">
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={chartData}>
                                 <defs>
                                     <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
                                         <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
-                                <XAxis dataKey="name" stroke="#475569" fontSize={10} tickMargin={10} />
-                                <YAxis stroke="#475569" fontSize={12} tickLine={false} axisLine={false} />
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: '#0f1117', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '12px' }}
-                                    itemStyle={{ color: '#fff' }}
-                                    formatter={(val: number | any) => val ? Number(val).toFixed(1) : "0.0"}
+                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff03" vertical={false} />
+                                <XAxis
+                                    dataKey="name"
+                                    stroke="#475569"
+                                    fontSize={10}
+                                    tickMargin={15}
+                                    axisLine={false}
+                                    tickLine={false}
                                 />
-                                <Area type="monotone" dataKey="score" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorScore)" />
+                                <YAxis
+                                    stroke="#475569"
+                                    fontSize={10}
+                                    tickLine={false}
+                                    axisLine={false}
+                                    tickMargin={10}
+                                />
+                                <Tooltip
+                                    contentStyle={{ backgroundColor: '#09090b', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '20px', padding: '15px' }}
+                                    itemStyle={{ color: '#fff', fontSize: '14px', fontWeight: '800' }}
+                                    cursor={{ stroke: 'rgba(255,255,255,0.05)', strokeWidth: 2 }}
+                                    formatter={(val: number | any) => val ? Number(val).toFixed(2) : "0.00"}
+                                />
+                                <Area type="monotone" dataKey="score" stroke="#10b981" strokeWidth={4} fillOpacity={1} fill="url(#colorScore)" />
                             </AreaChart>
                         </ResponsiveContainer>
                     </div>
                 </motion.div>
 
-                {/* Risk Pie Chart */}
+                {/* Hardcore PCA Threat Map */}
                 <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="glass-card p-8 flex flex-col items-center justify-center"
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="lg:col-span-1 glass-card p-10 flex flex-col items-center"
                 >
-                    <h2 className="text-xl font-bold mb-8 self-start">Severity Split</h2>
-                    <div className="h-[250px] w-full relative">
+                    <div className="w-full text-left mb-6">
+                        <div className="flex items-center gap-2 mb-1">
+                            <h2 className="text-xl font-black">Threat Map</h2>
+                            <span className="text-[8px] bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded border border-purple-500/30 font-black tracking-widest uppercase">HD-PCA</span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 font-medium uppercase tracking-widest">Behavioral Outlier Clusters</p>
+                    </div>
+
+                    <div className="h-[280px] w-full bg-white/[0.02] border border-white/5 rounded-3xl overflow-hidden relative">
                         <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={pieData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={80}
-                                    paddingAngle={8}
-                                    dataKey="value"
+                            <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff03" />
+                                <XAxis type="number" dataKey="x" name="PCA1" hide domain={['auto', 'auto']} />
+                                <YAxis type="number" dataKey="y" name="PCA2" hide domain={['auto', 'auto']} />
+                                <ZAxis type="number" dataKey="z" range={[50, 400]} />
+                                <Tooltip 
+                                    cursor={{ strokeDasharray: '3 3' }} 
+                                    contentStyle={{ backgroundColor: '#09090b', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px' }}
+                                />
+                                <Scatter 
+                                    name="Behaviors" 
+                                    data={(dashboardData?.recent_events || []).map((e: any) => ({
+                                        x: e.ml_pca_x || 0,
+                                        y: e.ml_pca_y || 0,
+                                        z: (e.ml_fraud_score || 0) * 100 + 20,
+                                        color: (e.ml_fraud_score || 0) > 0.7 ? '#f43f5e' : (e.ml_fraud_score || 0) > 0.3 ? '#f59e0b' : '#10b981',
+                                        name: e.event_type
+                                    }))} 
                                 >
-                                    {pieData.map((_entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={_entry.color} stroke="none" />
-                                    ))}
-                                </Pie>
-                            </PieChart>
+                                    { (dashboardData?.recent_events || []).map((_entry: any, index: number) => (
+                                        <Cell 
+                                            key={`cell-${index}`} 
+                                            fill={(_entry.ml_fraud_score || 0) > 0.7 ? '#f43f5e' : (_entry.ml_fraud_score || 0) > 0.3 ? '#f59e0b' : '#10b981'} 
+                                            className="drop-shadow-[0_0_8px_rgba(244,63,94,0.3)]"
+                                        />
+                                    )) }
+                                </Scatter>
+                                <ReferenceLine x={0} stroke="#ffffff05" />
+                                <ReferenceLine y={0} stroke="#ffffff05" />
+                            </ScatterChart>
                         </ResponsiveContainer>
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className="text-3xl font-bold">{avgRisk}</span>
-                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Avg Risk / 300</span>
+                        
+                        <div className="absolute bottom-4 right-4 flex gap-3">
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                                <span className="text-[8px] font-black text-slate-500 uppercase">Secure</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]" />
+                                <span className="text-[8px] font-black text-slate-500 uppercase">Outlier</span>
+                            </div>
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4 mt-4 w-full">
-                        {pieData.map(item => (
-                            <div key={item.name} className="flex items-center gap-2">
-                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: item.color }} />
-                                <span className="text-xs text-slate-400">{item.name} ({item.value})</span>
+
+                    <div className="mt-6 w-full p-4 rounded-2xl bg-white/[0.02] border border-white/5">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                                <Activity className="text-purple-400" size={14} />
                             </div>
-                        ))}
+                            <p className="text-[9px] text-slate-400 font-bold leading-tight">
+                                HD-PCA collapses 11 dimensions of behavior into 2D space to visualize real-time network anomalies.
+                            </p>
+                        </div>
                     </div>
                 </motion.div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* Recent Activity Feed */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                {/* Refined Activity Feed (Timeline Style) */}
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="glass-card p-8"
+                    className="glass-card p-6"
                 >
-                    <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-xl font-bold">Activity Feed</h2>
-                        <Activity className="text-slate-500" size={20} />
+                    <div className="flex items-center justify-between mb-5">
+                        <h2 className="text-lg font-black uppercase tracking-tight">Intelligence Log</h2>
+                        <div className="bg-white/5 p-2 rounded-lg border border-white/5">
+                            <Activity className="text-slate-500" size={16} />
+                        </div>
                     </div>
-                    <div className="space-y-4 max-h-[400px] overflow-auto pr-2 scrollbar-thin scrollbar-thumb-white/10">
+
+                    <div className="space-y-1 relative before:absolute before:left-[11px] before:top-2 before:bottom-0 before:w-px before:bg-white/[0.03] max-h-[550px] overflow-auto pr-4 scrollbar-thin">
                         {(() => {
-                            // Deduplicate alerts by type if they happened in the last hour
                             const consolidatedAlerts = (alerts || []).reduce((acc: any[], alert) => {
                                 const alertTime = new Date(alert.timestamp).getTime();
-
-                                const existing = acc.find(a => a.type === alert.type);
+                                // Consolidate by type AND holder name to distinguish between users
+                                const existing = acc.find(a => a.type === alert.type && a.holderName === alert.holderName);
                                 if (existing) {
                                     existing.count = (existing.count || 1) + 1;
-                                    existing.timestamp = Math.max(existing.timestamp, alertTime);
+                                    const existingTime = new Date(existing.timestamp).getTime();
+                                    if (alertTime > existingTime) {
+                                        existing.timestamp = alert.timestamp; // Keep the latest ISO string
+                                        existing.message = alert.message; // Keep the latest message
+                                        existing.severity = alert.severity;
+                                        existing.sortTime = alertTime;
+                                        existing.mlFraudScore = alert.mlFraudScore;
+                                        existing.mlExplanation = alert.mlExplanation;
+                                    }
                                 } else {
-                                    acc.push({ ...alert, count: 1, timestamp: alertTime });
+                                    acc.push({ ...alert, count: 1, sortTime: alertTime });
                                 }
                                 return acc;
-                            }, []).sort((a, b) => b.timestamp - a.timestamp).slice(0, 10);
+                            }, []).sort((a, b) => b.sortTime - a.sortTime);
 
                             return consolidatedAlerts.map((alert) => (
-                                <div key={alert.id} className="flex items-start gap-4 p-4 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors">
-                                    <div className={`p-2 rounded-lg ${alert.severity === 'CRITICAL' ? 'bg-rose-500/20 text-rose-500' :
-                                        alert.severity === 'HIGH' ? 'bg-amber-400/20 text-amber-400' :
-                                            'bg-emerald-500/20 text-emerald-500'
-                                        }`}>
-                                        <AlertTriangle size={18} />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="text-sm font-bold truncate">
-                                                {alert.type}
-                                                {alert.count > 1 && <span className="ml-2 text-xs bg-white/10 px-2 py-0.5 rounded-full text-slate-300">x{alert.count}</span>}
-                                            </span>
-                                            <span className="text-[10px] text-slate-500 font-mono">
-                                                {new Date(alert.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'medium' })}
-                                            </span>
+                                <div key={alert.id} className="group relative pl-10 py-5 transition-all">
+                                    <div className={cn(
+                                        "timeline-dot absolute left-2 top-[26px] z-10",
+                                        alert.severity === 'CRITICAL' ? 'bg-rose-500' : alert.severity === 'HIGH' ? 'bg-amber-400' : 'bg-emerald-500'
+                                    )} />
+
+                                    <div className="bg-white/[0.02] border border-white/[0.03] p-4 rounded-3xl group-hover:bg-white/[0.04] group-hover:border-white/10 transition-all flex items-start gap-4">
+                                        <div className="flex-1 min-w-0 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-sm font-black text-white uppercase">{alert.type}</span>
+                                                    {alert.count > 1 && (
+                                                        <span className="text-[9px] bg-cyber-primary/10 text-cyber-primary px-2 py-0.5 rounded-full font-black border border-cyber-primary/20">
+                                                            ×{alert.count}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <span className="text-[10px] text-slate-500 font-mono font-bold">
+                                                    {new Date(alert.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                                </span>
+                                            </div>
+
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-[9px] font-black bg-white/5 border border-white/5 px-2 py-0.5 rounded text-slate-400 uppercase tracking-widest">
+                                                    {alert.holderName || 'N/A'}
+                                                </span>
+                                                {alert.mlFraudScore != null && (
+                                                    <div className="flex flex-col gap-1.5 mt-2">
+                                                        <div className="flex items-center gap-2 bg-gradient-to-r from-purple-600/20 to-violet-600/10 border border-purple-500/30 px-3 py-1 rounded-full w-fit shadow-[0_0_15px_rgba(168,85,247,0.15)]">
+                                                            <div className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+                                                            <span className="text-[10px] font-black text-purple-200 uppercase tracking-[0.1em]">
+                                                                SENTINELX ML: {Math.round(alert.mlFraudScore * 100)}%
+                                                            </span>
+                                                        </div>
+                                                        {alert.mlExplanation && (
+                                                            <span className="text-[9px] font-bold text-violet-400/80 uppercase tracking-tighter ml-1">
+                                                                ↳ {alert.mlExplanation}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                <div className="h-1 w-1 bg-slate-700 rounded-full mt-2" />
+                                                <p className="text-xs text-slate-500 truncate italic">"{alert.message}"</p>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <span className="text-[9px] font-black bg-white/5 border border-white/10 px-1.5 py-0.5 rounded text-slate-400 tracking-wider">
-                                                TARGET: <span className="text-white">{alert.holderName || 'Unknown'}</span>
-                                            </span>
-                                        </div>
-                                        <p className="text-xs text-slate-400 line-clamp-1">{alert.message}</p>
                                     </div>
                                 </div>
                             ));
                         })()}
                         {(!alerts || alerts.length === 0) && (
-                            <div className="flex flex-col items-center justify-center py-12 text-slate-500 opacity-50">
-                                <ShieldCheck size={48} className="mb-4" />
-                                <p>No active threats detected</p>
+                            <div className="flex flex-col items-center justify-center py-20 text-slate-600 space-y-4">
+                                <ShieldCheck size={50} strokeWidth={1} className="opacity-20 animate-pulse" />
+                                <p className="text-[10px] font-black uppercase tracking-[0.4em]">Zero Vector Threats</p>
                             </div>
                         )}
                     </div>
                 </motion.div>
 
-                {/* Target Account Oversight (THE 10 RANDOM ACCOUNTS) */}
+                {/* Account Oversight */}
                 <motion.div
-                    initial={{ opacity: 0, y: 20 }}
+                    initial={{ opacity: 0, y: 30 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="glass-card p-8"
+                    className="glass-card p-6"
                 >
                     <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-xl font-bold">Target Account Oversight</h2>
-                        <Users className="text-slate-500" size={20} />
+                        <h2 className="text-lg font-black uppercase tracking-tight">Node Integrity</h2>
+                        <Users className="text-slate-500" size={16} />
                     </div>
                     <div className="space-y-3">
                         {(dashboardData?.random_accounts || []).map((acc: any) => (
-                            <div key={acc.id} className="group flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:border-cyber-primary/20 hover:bg-cyber-primary/5 transition-all">
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center border ${acc.risk_level === 'Critical' ? 'bg-rose-500/10 border-rose-500/20 text-rose-500' :
-                                        acc.risk_level === 'High' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' :
-                                            'bg-cyber-primary/10 border-cyber-primary/20 text-cyber-primary'
-                                        }`}>
-                                        <User size={18} />
+                            <div key={acc.id} className="group flex items-center justify-between p-4 rounded-3xl bg-white/[0.02] border border-white/5 hover:border-cyber-primary/30 hover:bg-cyber-primary/[0.02] transition-all">
+                                <div className="flex items-center gap-4">
+                                    <div className={cn(
+                                        "w-12 h-12 rounded-2xl flex items-center justify-center border transition-all duration-500",
+                                        acc.risk_level === 'Critical' ? 'bg-rose-500/10 border-rose-500/20 text-rose-500' :
+                                            acc.risk_level === 'High' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' :
+                                                'bg-cyber-primary/10 border-cyber-primary/20 text-cyber-primary'
+                                    )}>
+                                        <User size={20} />
                                     </div>
                                     <div>
-                                        <p className="text-sm font-bold text-white group-hover:text-cyber-primary transition-colors">{acc.holder_name}</p>
-                                        <p className="text-[10px] text-slate-500 font-mono uppercase tracking-widest">{acc.account_number} • {acc.baseline_primary_location?.split(',')[0]}</p>
+                                        <p className="text-sm font-black text-white group-hover:text-cyber-primary transition-colors">{acc.holder_name}</p>
+                                        <p className="text-[10px] text-slate-500 font-mono font-bold tracking-tight flex items-center gap-1">
+                                            <span>{acc.account_number}</span>
+                                            <span>//</span>
+                                            <span className="truncate max-w-[100px]" title={acc.baseline_primary_location}>{acc.baseline_primary_location?.split(',')[0]}</span>
+                                        </p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-6">
                                     <div className="text-right">
-                                        <p className={`text-xs font-black ${acc.risk_level === 'Critical' ? 'text-rose-500' :
-                                            acc.risk_level === 'High' ? 'text-amber-500' : 'text-cyber-primary'
-                                            }`}>{acc.risk_score.toFixed(1)}/300</p>
-                                        <p className="text-[8px] text-slate-600 font-black uppercase tracking-tighter">Risk Score</p>
+                                        <p className={cn(
+                                            "text-sm font-black tabular-nums",
+                                            acc.risk_level === 'Critical' ? 'text-rose-500' : acc.risk_level === 'High' ? 'text-amber-500' : 'text-cyber-primary'
+                                        )}>{acc.risk_score.toFixed(1)}</p>
+                                        <p className="text-[8px] text-slate-600 font-black uppercase tracking-widest mt-0.5">Index</p>
                                     </div>
-                                    <Link
-                                        to={`/accounts/${acc.id}`}
-                                        className="p-2 rounded-lg bg-white/5 text-slate-500 hover:text-white hover:bg-cyber-primary transition-all"
-                                    >
-                                        <ChevronRight size={16} />
+                                    <Link to={`/accounts/${acc.id}`} className="p-2.5 rounded-xl bg-white/5 text-slate-500 hover:text-white hover:bg-cyber-primary transition-all">
+                                        <ChevronRight size={18} />
                                     </Link>
                                 </div>
                             </div>
                         ))}
                     </div>
-                    <Link to="/accounts" className="mt-6 flex items-center justify-center gap-2 py-3 rounded-xl bg-white/5 border border-white/5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 hover:text-cyber-primary hover:border-cyber-primary/20 transition-all">
-                        View All Intelligence Data <ChevronRight size={12} />
+                    <Link to="/accounts" className="mt-8 flex items-center justify-center gap-3 py-4 rounded-2xl bg-white/5 border border-white/5 text-[10px] font-black uppercase tracking-[0.25em] text-slate-500 hover:text-white hover:border-cyber-primary/30 transition-all">
+                        EXPLORE ENTITY DATABASE <ChevronRight size={14} />
                     </Link>
                 </motion.div>
             </div>
 
-            {/* Global Security Status */}
+            {/* Optimized Defensive Posture (Grid-based, no fixed overlap) */}
             <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 50 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`glass-card p-8 transition-all duration-1000 ${systemStatus === 'Under Attack' ? 'shadow-[0_0_50px_rgba(239,68,68,0.1)] border-rose-500/20' : 'border-white/5'
-                    }`}
+                className={cn(
+                    "glass-card p-12 transition-all duration-1000",
+                    systemStatus === 'Under Attack' ? "border-rose-500/30 ring-1 ring-rose-500/20" : "border-white/5"
+                )}
             >
-                <div className="flex items-center justify-between mb-8">
-                    <h2 className="text-xl font-bold">Defensive Posture</h2>
-                    <div className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest ${systemStatus === 'Under Attack' ? 'bg-rose-500 text-white' : 'bg-cyber-primary text-white'
-                        }`}>
+                <div className="flex items-center justify-between mb-12">
+                    <div className="space-y-0.5">
+                        <h2 className="text-xl font-black tracking-tight uppercase">DEFENSIVE POSTURE</h2>
+                        <p className="text-[9px] text-slate-600 font-bold tracking-[0.3em] uppercase">Genesis AI Real-time Barrier</p>
+                    </div>
+                    <div className={cn(
+                        "px-6 py-2 rounded-full text-xs font-black uppercase tracking-[0.3em] shadow-2xl",
+                        systemStatus === 'Under Attack' ? 'bg-rose-500 text-white animate-pulse' : 'bg-cyber-primary text-white shadow-cyber-primary/20'
+                    )}>
                         {systemStatus}
                     </div>
                 </div>
 
-                <div className="space-y-6">
-                    <div className="space-y-2">
-                        <div className="flex justify-between text-xs font-bold uppercase tracking-wider">
-                            <span className="text-slate-500">ML Anomaly Detection</span>
-                            <span className={systemStatus === 'Under Attack' ? 'text-amber-500' : 'text-cyber-primary'}>
-                                {systemStatus === 'Under Attack' ? 'Engaged' : 'Optimal'}
-                            </span>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+                    <div className="space-y-3">
+                        <div className="flex justify-between text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                            <span>ML ANOMALY</span>
+                            <span className="text-cyber-primary">NOMINAL</span>
                         </div>
-                        <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
                             <motion.div
                                 initial={{ width: 0 }}
-                                animate={{ width: systemStatus === 'Under Attack' ? '98%' : '94%' }}
-                                className={`h-full ${systemStatus === 'Under Attack' ? 'bg-amber-500' : 'bg-cyber-primary'}`}
+                                animate={{ width: '94%' }}
+                                className="h-full bg-gradient-to-r from-cyber-primary to-cyber-secondary shadow-[0_0_10px_rgba(16,185,129,0.3)]"
                             />
                         </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <div className="flex justify-between text-xs font-bold uppercase tracking-wider">
-                            <span className="text-slate-500">Threat Defense</span>
-                            <span className={alerts.length > 5 ? 'text-rose-500' : 'text-blue-500'}>
-                                {alerts.length > 5 ? 'High Load' : 'Stable'}
-                            </span>
+                    <div className="space-y-3">
+                        <div className="flex justify-between text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                            <span>THREAT DEFENSE</span>
+                            <span className={alerts.length > 5 ? 'text-rose-500' : 'text-cyan-400'}>STABLE</span>
                         </div>
-                        <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
                             <motion.div
                                 initial={{ width: 0 }}
-                                animate={{ width: alerts.length > 5 ? '85%' : '15%' }}
-                                className={`h-full ${alerts.length > 5 ? 'bg-rose-500' : 'bg-blue-500'}`}
+                                animate={{ width: '15%' }}
+                                className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 shadow-[0_0_10px_rgba(6,182,212,0.3)]"
                             />
                         </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <div className="flex justify-between text-xs font-bold uppercase tracking-wider">
-                            <span className="text-slate-500">Database Integrity</span>
-                            <span className="text-cyber-primary">100% Secure</span>
+                    <div className="space-y-3">
+                        <div className="flex justify-between text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                            <span>INTEGRITY index</span>
+                            <span className="text-emerald-400 uppercase">ENFORCED</span>
                         </div>
-                        <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
                             <motion.div
                                 initial={{ width: 0 }}
                                 animate={{ width: '100%' }}
-                                className="h-full bg-gradient-to-r from-cyber-primary to-cyber-secondary shadow-[0_0_15px_rgba(249,115,22,0.6)]"
+                                className="h-full bg-gradient-to-r from-emerald-500 to-cyber-primary shadow-[0_0_10px_rgba(16,185,129,0.3)]"
                             />
                         </div>
                     </div>
                 </div>
 
-                {systemStatus === 'Under Attack' && (
-                    <div className="mt-10 p-6 rounded-3xl bg-rose-500/5 border border-rose-500/20 relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                            <AlertTriangle size={80} className="text-rose-500" />
-                        </div>
-                        <div className="flex items-center gap-4 mb-4 relative z-10">
-                            <div className="bg-rose-500/20 p-2.5 rounded-xl border border-rose-500/20 shadow-lg">
-                                <Activity className="text-rose-500" size={20} strokeWidth={3} />
-                            </div>
-                            <span className="text-[11px] font-black uppercase tracking-[0.3em] text-white">Active Threat Mitigation</span>
-                        </div>
-                        <p className="text-xs text-slate-400 italic leading-relaxed relative z-10 pl-2 border-l-2 border-rose-500/30">
-                            "SentinelX has identified active anomalous vectors. Our AI models are mitigating the threats in real-time. Review the Incident Reports log for detailed forensic analysis."
-                        </p>
+                <div className="mt-12 p-8 rounded-[2rem] bg-white/[0.015] border border-white/5 relative group overflow-hidden">
+                    <div className="absolute top-0 right-0 p-8 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
+                        <Activity size={120} className="text-white" />
                     </div>
-                )}
-                {systemStatus === 'Live' && (
-                    <div className="mt-10 p-6 rounded-3xl bg-cyber-primary/5 border border-cyber-primary/10 relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                            <Activity size={80} className="text-cyber-primary" />
+                    <div className="flex items-start gap-6 relative z-10">
+                        <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                            <ShieldCheck className="text-cyber-primary" size={24} />
                         </div>
-                        <div className="flex items-center gap-4 mb-4 relative z-10">
-                            <div className="bg-cyber-primary/20 p-2.5 rounded-xl border border-cyber-primary/20 shadow-lg">
-                                <Activity className="text-cyber-primary" size={20} strokeWidth={3} />
-                            </div>
-                            <span className="text-[11px] font-black uppercase tracking-[0.3em] text-white">Genesis AI Prediction</span>
+                        <div className="space-y-2">
+                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">GENESIS AI PREDICTION</span>
+                            <p className="text-sm text-slate-500 italic max-w-3xl leading-relaxed">
+                                "SentinelX v5.0 is operating under optimal parameters. All localized nodes are reporting status normal. Genesis AI continuous telemetry ingestion is active without backlog."
+                            </p>
                         </div>
-                        <p className="text-xs text-slate-400 italic leading-relaxed relative z-10 pl-2 border-l-2 border-cyber-primary/30">
-                            "SentinelX is operating normally. All security baselines are nominal. Ongoing periodic telemetry analysis is active."
-                        </p>
                     </div>
-                )}
+                </div>
             </motion.div>
         </div>
     );

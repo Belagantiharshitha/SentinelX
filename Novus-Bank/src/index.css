@@ -1,0 +1,201 @@
+:root {
+  /* Clean & Neat Banking Palette (Utilizing User's requested colors) */
+  --bg-color: #f7f9fc;
+  --surface-color: #ffffff;
+  --panel-color: #001233;
+  /* The dark navy from user palette */
+
+  --primary-color: #0353A4;
+  /* Royal Blue */
+  --secondary-color: #2EC4B6;
+  /* Teal */
+  --accent-color: #FF9F1C;
+  /* Orange */
+
+  --text-primary: #101828;
+  --text-secondary: #475467;
+  --text-on-dark: #ffffff;
+
+  --border-color: #e2e8f0;
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-md: 0 4px 12px -2px rgba(16, 24, 40, 0.1), 0 2px 4px -2px rgba(16, 24, 40, 0.06);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', -apple-system, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Layout Utilities */
+.app-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 260px;
+  background-color: var(--panel-color);
+  color: var(--text-on-dark);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.main-view {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+/* Typography & Headings */
+h1,
+h2,
+h3,
+h4 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Clean Button Styles */
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+  font-family: inherit;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  gap: 8px;
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #023E7D;
+}
+
+.btn-outline {
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.btn-outline:hover {
+  background-color: #f1f5f9;
+}
+
+/* Table & List Styles */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th {
+  text-align: left;
+  padding: 12px 16px;
+  background-color: #f8fafc;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.data-table td {
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+  vertical-align: middle;
+}
+
+/* Input Styles */
+.form-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.form-input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(3, 83, 164, 0.1);
+}
+
+/* Glass & Accents */
+.accent-glow {
+  box-shadow: 0 0 15px rgba(46, 196, 182, 0.2);
+}
+
+/* Sidebar Navigation */
+.nav-item {
+  transition: all 0.2s ease;
+}
+
+.nav-item:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  transform: translateX(4px);
+}
+
+.nav-item.active {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Tab Content Transitions */
+.tab-pane {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}

@@ -12,21 +12,17 @@ import {
     Zap,
     User,
     ChevronDown,
-    ShieldAlert,
-    CheckCircle2
 } from 'lucide-react';
 
 const Simulation = () => {
     const { triggerSimulation, sessions } = useSOC();
     const [selectedTarget, setSelectedTarget] = useState<string>(sessions[0]?.id || '');
-    const [lastResult, setLastResult] = useState<any>(null);
     const [isSimulating, setIsSimulating] = useState(false);
 
     const handleTrigger = async (type: string) => {
         setIsSimulating(true);
         try {
-            const result = await triggerSimulation(type, selectedTarget);
-            setLastResult(result);
+            await triggerSimulation(type, selectedTarget);
         } catch (error) {
             console.error("Simulation error:", error);
         } finally {
@@ -86,7 +82,7 @@ const Simulation = () => {
         <div className="space-y-10">
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 text-white">
                 <div>
-                    <h1 className="text-3xl font-black tracking-[-0.04em] italic">
+                    <h1 className="text-3xl font-black italic">
                         SENTINEL<span className="text-cyber-primary">X</span> ARSENAL
                     </h1>
                     <p className="text-slate-500 font-bold uppercase tracking-[0.3em] text-[10px] mt-1 ml-1">
@@ -168,7 +164,7 @@ const Simulation = () => {
                         </div>
 
                         <div className="flex-1">
-                            <h3 className="text-lg font-black italic mb-1 group-hover:text-white transition-colors uppercase tracking-tight">{action.label}</h3>
+                            <h3 className="text-lg font-black italic mb-1 group-hover:text-white transition-colors uppercase">{action.label}</h3>
                             <p className="text-xs text-slate-500 leading-relaxed font-medium line-clamp-2">{action.desc}</p>
                         </div>
 
@@ -183,81 +179,7 @@ const Simulation = () => {
                 ))}
             </div>
 
-            {/* Forensic Result Panel */}
-            <div className="mt-12 space-y-4">
-                <div className="flex items-center gap-3">
-                    <ShieldAlert size={20} className="text-cyber-primary" />
-                    <h2 className="text-xl font-bold italic uppercase tracking-tight text-white">Simulation Diagnostics</h2>
-                </div>
-
-                <div className="glass-card p-8 border-dashed border-2 border-white/5 relative overflow-hidden">
-                    {!isSimulating && !lastResult && (
-                        <div className="flex flex-col items-center justify-center py-10 opacity-30">
-                            <Zap size={48} className="mb-4" />
-                            <p className="text-xs font-black uppercase tracking-widest text-center">Awaiting payload initialization...</p>
-                        </div>
-                    )}
-
-                    {isSimulating && (
-                        <div className="flex flex-col items-center justify-center py-10">
-                            <div className="relative">
-                                <motion.div
-                                    animate={{ rotate: 360 }}
-                                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                                    className="w-16 h-16 border-2 border-cyber-primary/20 border-t-cyber-primary rounded-full"
-                                />
-                                <Zap className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-cyber-primary" size={20} />
-                            </div>
-                            <p className="mt-6 text-[10px] font-black uppercase tracking-[0.3em] text-cyber-primary animate-pulse">Processing Forensics...</p>
-                        </div>
-                    )}
-
-                    {!isSimulating && lastResult && (
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            className="space-y-6"
-                        >
-                            <div className="flex flex-col sm:flex-row justify-between gap-6 pb-6 border-b border-white/5">
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Detection Status</p>
-                                    <div className="flex items-center gap-3">
-                                        <div className="bg-cyber-primary/20 text-cyber-primary p-1.5 rounded-lg border border-cyber-primary/30">
-                                            <CheckCircle2 size={16} />
-                                        </div>
-                                        <h4 className="text-xl font-black text-white italic">SUCCESSFUL MITIGATION</h4>
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Target Resolution</p>
-                                    <p className="text-lg font-black text-cyber-primary uppercase tracking-tighter">{currentTarget?.holderName}</p>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="space-y-4">
-                                    <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-l-2 border-cyber-primary pl-3">Identified Vectors</h5>
-                                    <div className="flex flex-wrap gap-2">
-                                        {lastResult.detected_attacks?.length > 0 ? (
-                                            lastResult.detected_attacks.map((atk: string) => (
-                                                <span key={atk} className="px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[10px] font-black uppercase tracking-widest shadow-lg shadow-rose-500/5">{atk}</span>
-                                            ))
-                                        ) : (
-                                            <span className="px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-[10px] font-black uppercase tracking-widest">Anomalies Detected (Below Threshold)</span>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="space-y-4">
-                                    <h5 className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-l-2 border-cyber-primary pl-3">Response Protocol</h5>
-                                    <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-                                        <p className="text-xs font-bold text-slate-300 italic">"Security protocol <span className="text-cyber-primary uppercase">{lastResult.action_taken || 'baseline'}</span> executed. Risk score escalated to {lastResult.final_risk_score?.toFixed(1)}/300. Target status: {lastResult.final_status}."</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </motion.div>
-                    )}
-                </div>
-            </div>
+            {/* Forensic Detail available in Notifications */}
         </div>
     );
 };

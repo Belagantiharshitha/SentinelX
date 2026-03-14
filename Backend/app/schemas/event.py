@@ -24,9 +24,13 @@ class EventResponse(EventBase):
 class RiskBreakdown(BaseModel):
     baseline_deviation: float
     attack_contribution: float
+    ml_fraud_score: Optional[float] = None
+    ml_contribution: Optional[float] = None
 
 class RiskResponse(BaseModel):
     new_risk_score: float
     risk_level: str
     detected_attacks: List[str]
+    ml_fraud_score: Optional[float] = None
+    ml_is_anomaly: Optional[bool] = None
     risk_breakdown: RiskBreakdown

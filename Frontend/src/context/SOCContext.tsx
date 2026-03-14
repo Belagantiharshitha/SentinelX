@@ -68,7 +68,7 @@ export const SOCProvider = ({ children }: { children: ReactNode }) => {
                         lastEvent: 'System Baseline',
                         device: acc.baseline_primary_device || 'Unknown',
                         location: acc.baseline_primary_location || 'Unknown',
-                        lastActivity: acc.updated_at
+                        lastActivity: acc.updated_at ? (acc.updated_at.includes('Z') ? acc.updated_at : `${acc.updated_at}Z`) : undefined
                     };
                 });
                 console.log("[SOCContext] Mapped Sessions:", mappedSessions);
@@ -82,19 +82,21 @@ export const SOCProvider = ({ children }: { children: ReactNode }) => {
 
                 const mappedAlerts: SuspiciousAlert[] = incidentsData.map((inc: any) => ({
                     id: String(inc.id),
-                    timestamp: inc.created_at,
+                    timestamp: inc.created_at ? (inc.created_at.includes('Z') ? inc.created_at : `${inc.created_at}Z`) : undefined,
                     severity: (inc.severity || 'high').toUpperCase() as any,
                     type: inc.attack_type,
                     message: inc.ai_summary || `Automated response: ${inc.action_taken}`,
                     holderName: inc.account?.holder_name,
-                    accountNumber: inc.account?.account_number
+                    accountNumber: inc.account?.account_number,
+                    mlFraudScore: inc.ml_fraud_score ?? null,
+                    mlExplanation: inc.ml_explanation ?? null
                 }));
 
                 // Trigger toasts for NEW alerts
                 mappedAlerts.forEach(alert => {
                     // Only toast High or Critical to reduce noise
                     if (!seenAlertIds.has(alert.id) && (alert.severity === 'HIGH' || alert.severity === 'CRITICAL')) {
-                        toast(alert.message, {
+                        toast(`${alert.severity}: ${alert.type} detected on ${alert.holderName || 'Node'}`, {
                             icon: '🚨',
                             duration: 5000,
                             id: alert.id // Prevent duplicates

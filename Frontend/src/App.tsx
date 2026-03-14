@@ -26,26 +26,32 @@ const AppContent = () => {
   }
 
   return (
-    <div className="flex h-screen w-screen bg-[#0a0a0f] text-slate-200 relative overflow-hidden">
-      {/* Ambient glowing orbs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-500/10 blur-[150px] rounded-full pointer-events-none mix-blend-screen" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-rose-500/10 blur-[120px] rounded-full pointer-events-none mix-blend-screen" />
+    <div className="flex h-screen w-screen bg-obsidian text-slate-200 relative overflow-hidden">
+      {/* Dynamic Background Elements */}
+      <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-cyber-primary/10 blur-[180px] rounded-full pointer-events-none mix-blend-screen animate-float" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-cyber-secondary/10 blur-[150px] rounded-full pointer-events-none mix-blend-screen animate-float" style={{ animationDelay: '-5s' }} />
+      <div className="absolute top-[30%] left-[40%] w-[40%] h-[40%] bg-cyber-accent/5 blur-[120px] rounded-full pointer-events-none mix-blend-overlay animate-slow-spin" />
 
       <Sidebar collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
-      <div className="flex-1 flex flex-col min-w-0 z-10 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 z-10 overflow-hidden relative">
         <Header />
-        <main className="flex-1 p-4 md:p-8 overflow-y-auto z-10 relative scrollbar-thin scrollbar-thumb-white/10 scroll-smooth">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/accounts" element={<Accounts />} />
-            <Route path="/alerts" element={<Alerts />} />
-            <Route path="/notifications" element={<Notifications />} />
-            <Route path="/simulation" element={<Simulation />} />
-            <Route path="/reports" element={<IncidentReports />} />
-            <Route path="/accounts/:id" element={<AccountDetail />} />
-            <Route path="/profile" element={<AdminProfile />} />
-          </Routes>
+        <main className="flex-1 p-6 md:p-10 overflow-y-auto z-10 relative scroll-smooth overflow-x-hidden">
+          <div className="max-w-[1600px] mx-auto w-full pb-20">
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/accounts" element={<Accounts />} />
+              <Route path="/alerts" element={<Alerts />} />
+              <Route path="/notifications" element={<Notifications />} />
+              <Route path="/simulation" element={<Simulation />} />
+              <Route path="/reports" element={<IncidentReports />} />
+              <Route path="/accounts/:id" element={<AccountDetail />} />
+              <Route path="/profile" element={<AdminProfile />} />
+            </Routes>
+          </div>
         </main>
+
+        {/* Subtle Bottom Fade to prevent footer clipping/hiding content */}
+        <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-obsidian to-transparent pointer-events-none z-20" />
       </div>
     </div>
   );

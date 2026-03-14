@@ -17,10 +17,8 @@ def seed_database(db: Session):
     with open(csv_path, mode='r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         
-        # We'll take the first 100 accounts to keep the DB snappy, 
-        # but the user said "random 10 on dashboard", so seeding many is fine.
-        rows = list(reader)
-        # Randomly sample if the dataset is huge, but 2000 is manageable.
+        # We'll take the first 250 accounts to keep the DB snappy.
+        rows = list(reader)[:250]
         
         for row in rows:
             # Map CSV columns to Account model
@@ -39,6 +37,8 @@ def seed_database(db: Session):
             account = Account(
                 account_number=f"ACC-{row.get('id', random.randint(1000, 9999))}",
                 holder_name=row.get('username', 'Unknown User'),
+                email=f"{row.get('username', 'user').lower().replace(' ', '.').replace('(', '').replace(')', '')}.{row.get('id', '0')}@gmail.com",
+                password="password123",
                 baseline_avg_transaction=round(income / 500, 2), # Typical daily/weekly spend
                 baseline_primary_device=random.choice(["iPhone 15", "Samsung S24", "MacBook Pro", "Windows PC", "iPad Air"]),
                 baseline_primary_location=row.get('address', 'Unknown City'),

@@ -5,3 +5,7 @@ psycopg2-binary
 pydantic-settings
 openai
 python-dotenv
+scikit-learn
+joblib
+numpy
+pandas
