@@ -1,0 +1,19 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+.env
+
+# Node / React
+node_modules/
+dist/
+.vite/
+.eslintcache
+
+# Databases
+*.db
+!sentinelx_v4.db # We WANT to keep the demo database for the jury!
+
+# OS
+.DS_Store
+Thumbs.db
