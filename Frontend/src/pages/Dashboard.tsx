@@ -7,9 +7,12 @@ import {
     Activity,
     AlertTriangle,
     ChevronRight,
-    User
+    User,
+    Mail,
+    RotateCcw,
+    Search
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
     AreaChart,
     Area,
@@ -32,7 +35,8 @@ function cn(...inputs: ClassValue[]) {
 }
 
 const Dashboard = () => {
-    const { sessions, alerts, systemStatus, dashboardData } = useSOC();
+    const { sessions, alerts, systemStatus, dashboardData, remediateVerify, remediateResetPassword } = useSOC();
+    const navigate = useNavigate();
 
 
     const systemHealthDisplay = dashboardData?.system_health?.status === 'ok'
@@ -76,6 +80,7 @@ const Dashboard = () => {
                     </p>
                 </div>
             </div>
+
 
             {/* Premium Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -179,7 +184,26 @@ const Dashboard = () => {
                                 <ZAxis type="number" dataKey="z" range={[50, 400]} />
                                 <Tooltip 
                                     cursor={{ strokeDasharray: '3 3' }} 
-                                    contentStyle={{ backgroundColor: '#09090b', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px' }}
+                                    content={({ active, payload }: any) => {
+                                        if (active && payload && payload.length) {
+                                            const data = payload[0].payload;
+                                            return (
+                                                <div className="bg-[#09090b] border border-white/10 p-3 rounded-xl shadow-2xl backdrop-blur-xl">
+                                                    <p className="text-[10px] font-black text-cyber-primary uppercase tracking-[0.2em] mb-1">{data.name.replace('_', ' ')}</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className={cn(
+                                                            "w-1.5 h-1.5 rounded-full",
+                                                            data.color === '#f43f5e' ? 'bg-rose-500 animate-pulse' : 
+                                                            data.color === '#f59e0b' ? 'bg-amber-500' : 'bg-emerald-500'
+                                                        )} />
+                                                        <p className="text-sm font-bold text-white uppercase tabular-nums">Score: {(data.z/100).toFixed(2)}</p>
+                                                    </div>
+                                                    <p className="text-[8px] text-slate-500 mt-1 uppercase font-bold tracking-widest">Behavioral Vector</p>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    }}
                                 />
                                 <Scatter 
                                     name="Behaviors" 
@@ -216,14 +240,24 @@ const Dashboard = () => {
                         </div>
                     </div>
 
-                    <div className="mt-6 w-full p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                        <div className="flex items-center gap-3">
+                    <div className="mt-6 w-full p-4 rounded-2xl bg-white/[0.02] border border-white/5 relative group overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <div className="flex items-start gap-3 relative z-10">
                             <div className="p-2 rounded-lg bg-purple-500/10 border border-purple-500/20">
                                 <Activity className="text-purple-400" size={14} />
                             </div>
-                            <p className="text-[9px] text-slate-400 font-bold leading-tight">
-                                HD-PCA collapses 11 dimensions of behavior into 2D space to visualize real-time network anomalies.
-                            </p>
+                            <div>
+                                <p className="text-[9px] text-purple-400 font-black uppercase tracking-[0.2em] mb-0.5">Genesis AI Analysis</p>
+                                <p className="text-[10px] text-slate-400 font-bold leading-relaxed">
+                                    {(() => {
+                                        const lastAnomaly = (dashboardData?.recent_events || []).find((e: any) => (e.ml_fraud_score || 0) > 0.3);
+                                        if (lastAnomaly) {
+                                            return `Detected: ${lastAnomaly.event_type.replace('_', ' ')} outlier for Account ${lastAnomaly.account_id}. Statistical separation confirmed at ${((lastAnomaly.ml_fraud_score || 0) * 100).toFixed(1)}% probability.`;
+                                        }
+                                        return "HD-PCA collapses 11 dimensions of behavior into 2D space to visualize real-time network anomalies.";
+                                    })()}
+                                </p>
+                            </div>
                         </div>
                     </div>
                 </motion.div>
@@ -237,28 +271,25 @@ const Dashboard = () => {
                     className="glass-card p-6"
                 >
                     <div className="flex items-center justify-between mb-5">
-                        <h2 className="text-lg font-black uppercase tracking-tight">Intelligence Log</h2>
+                        <h2 className="text-lg font-black tracking-tight">Incident log</h2>
                         <div className="bg-white/5 p-2 rounded-lg border border-white/5">
                             <Activity className="text-slate-500" size={16} />
                         </div>
                     </div>
 
-                    <div className="space-y-1 relative before:absolute before:left-[11px] before:top-2 before:bottom-0 before:w-px before:bg-white/[0.03] max-h-[550px] overflow-auto pr-4 scrollbar-thin">
+                    <div className="space-y-4 max-h-[550px] overflow-auto pr-4 scrollbar-thin">
                         {(() => {
                             const consolidatedAlerts = (alerts || []).reduce((acc: any[], alert) => {
                                 const alertTime = new Date(alert.timestamp).getTime();
-                                // Consolidate by type AND holder name to distinguish between users
                                 const existing = acc.find(a => a.type === alert.type && a.holderName === alert.holderName);
                                 if (existing) {
                                     existing.count = (existing.count || 1) + 1;
                                     const existingTime = new Date(existing.timestamp).getTime();
                                     if (alertTime > existingTime) {
-                                        existing.timestamp = alert.timestamp; // Keep the latest ISO string
-                                        existing.message = alert.message; // Keep the latest message
+                                        existing.timestamp = alert.timestamp;
+                                        existing.message = alert.message;
                                         existing.severity = alert.severity;
                                         existing.sortTime = alertTime;
-                                        existing.mlFraudScore = alert.mlFraudScore;
-                                        existing.mlExplanation = alert.mlExplanation;
                                     }
                                 } else {
                                     acc.push({ ...alert, count: 1, sortTime: alertTime });
@@ -267,58 +298,39 @@ const Dashboard = () => {
                             }, []).sort((a, b) => b.sortTime - a.sortTime);
 
                             return consolidatedAlerts.map((alert) => (
-                                <div key={alert.id} className="group relative pl-10 py-5 transition-all">
+                                <div key={alert.id} className="group relative pl-8 pb-4 last:pb-0">
                                     <div className={cn(
-                                        "timeline-dot absolute left-2 top-[26px] z-10",
-                                        alert.severity === 'CRITICAL' ? 'bg-rose-500' : alert.severity === 'HIGH' ? 'bg-amber-400' : 'bg-emerald-500'
+                                        "absolute left-0 top-1.5 w-2 h-2 rounded-full z-10",
+                                        alert.severity === 'CRITICAL' ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.4)]' : 
+                                        alert.severity === 'HIGH' ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.4)]' : 
+                                        'bg-cyber-primary shadow-[0_0_8px_rgba(16,185,129,0.4)]'
                                     )} />
-
-                                    <div className="bg-white/[0.02] border border-white/[0.03] p-4 rounded-3xl group-hover:bg-white/[0.04] group-hover:border-white/10 transition-all flex items-start gap-4">
-                                        <div className="flex-1 min-w-0 space-y-2">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    <span className="text-sm font-black text-white uppercase">{alert.type}</span>
-                                                    {alert.count > 1 && (
-                                                        <span className="text-[9px] bg-cyber-primary/10 text-cyber-primary px-2 py-0.5 rounded-full font-black border border-cyber-primary/20">
-                                                            ×{alert.count}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <span className="text-[10px] text-slate-500 font-mono font-bold">
-                                                    {new Date(alert.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                                                </span>
-                                            </div>
-
-                                            <div className="flex items-center gap-3">
-                                                <span className="text-[9px] font-black bg-white/5 border border-white/5 px-2 py-0.5 rounded text-slate-400 uppercase tracking-widest">
-                                                    {alert.holderName || 'N/A'}
-                                                </span>
-                                                {alert.mlFraudScore != null && (
-                                                    <div className="flex flex-col gap-1.5 mt-2">
-                                                        <div className="flex items-center gap-2 bg-gradient-to-r from-purple-600/20 to-violet-600/10 border border-purple-500/30 px-3 py-1 rounded-full w-fit shadow-[0_0_15px_rgba(168,85,247,0.15)]">
-                                                            <div className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
-                                                            <span className="text-[10px] font-black text-purple-200 uppercase tracking-[0.1em]">
-                                                                SENTINELX ML: {Math.round(alert.mlFraudScore * 100)}%
-                                                            </span>
-                                                        </div>
-                                                        {alert.mlExplanation && (
-                                                            <span className="text-[9px] font-bold text-violet-400/80 uppercase tracking-tighter ml-1">
-                                                                ↳ {alert.mlExplanation}
-                                                            </span>
-                                                        )}
-                                                    </div>
+                                    <div className="border-l border-white/5 pl-6 pb-2">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] font-black text-white uppercase tracking-tight">{alert.type}</span>
+                                                {alert.count > 1 && (
+                                                    <span className="text-[8px] bg-cyber-primary/10 text-cyber-primary px-1.5 py-0.5 rounded font-black">
+                                                        ×{alert.count}
+                                                    </span>
                                                 )}
-                                                <div className="h-1 w-1 bg-slate-700 rounded-full mt-2" />
-                                                <p className="text-xs text-slate-500 truncate italic">"{alert.message}"</p>
                                             </div>
+                                            <span className="text-[8px] text-slate-500 font-mono">
+                                                {new Date(alert.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
                                         </div>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{alert.holderName || 'SYSTEM'}</span>
+                                            <span className="text-[8px] text-slate-600 font-mono">[{alert.accountNumber || 'CORE'}]</span>
+                                        </div>
+                                        <p className="text-[10px] text-slate-500 line-clamp-1 italic opacity-60 group-hover:opacity-100 transition-opacity">"{alert.message}"</p>
                                     </div>
                                 </div>
                             ));
                         })()}
                         {(!alerts || alerts.length === 0) && (
                             <div className="flex flex-col items-center justify-center py-20 text-slate-600 space-y-4">
-                                <ShieldCheck size={50} strokeWidth={1} className="opacity-20 animate-pulse" />
+                                <ShieldCheck size={50} strokeWidth={1} className="opacity-20 translate-y-4" />
                                 <p className="text-[10px] font-black uppercase tracking-[0.4em]">Zero Vector Threats</p>
                             </div>
                         )}
@@ -332,7 +344,7 @@ const Dashboard = () => {
                     className="glass-card p-6"
                 >
                     <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-lg font-black uppercase tracking-tight">Node Integrity</h2>
+                        <h2 className="text-lg font-black tracking-tight">Node integrity</h2>
                         <Users className="text-slate-500" size={16} />
                     </div>
                     <div className="space-y-3">

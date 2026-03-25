@@ -26,6 +26,15 @@ class AccountResponse(AccountBase):
     risk_level: str
     account_status: str
     updated_at: datetime
+    age: Optional[int] = None
+    gender: Optional[str] = None
+    address: Optional[str] = None
+    yearly_income: Optional[str] = None
+    total_debt: Optional[str] = None
+    credit_score: Optional[int] = None
+    num_credit_cards: Optional[int] = None
+    is_verified: Optional[int] = 1
+    password_reset_required: Optional[int] = 0
 
     class Config:
         from_attributes = True

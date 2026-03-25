@@ -9,3 +9,9 @@ scikit-learn
 joblib
 numpy
 pandas
+pyotp
+qrcode
+python-multipart
+passlib
+bcrypt
+watchfiles

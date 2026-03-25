@@ -2,7 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 import joblib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
@@ -106,9 +106,16 @@ class FraudDetectionModel:
         # 1. Temporal & Static
         timestamp = event_data.get("timestamp")
         if isinstance(timestamp, str):
-            try: timestamp = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-            except: timestamp = datetime.utcnow()
-        elif timestamp is None: timestamp = datetime.utcnow()
+            try: 
+                timestamp = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                if timestamp.tzinfo is not None:
+                    timestamp = timestamp.astimezone(timezone.utc).replace(tzinfo=None)
+            except: 
+                timestamp = datetime.utcnow()
+        elif timestamp is None: 
+            timestamp = datetime.utcnow()
+        elif hasattr(timestamp, "tzinfo") and timestamp.tzinfo is not None:
+             timestamp = timestamp.astimezone(timezone.utc).replace(tzinfo=None)
         
         hour = float(timestamp.hour if hasattr(timestamp, "hour") else 12)
         day_of_week = float(timestamp.weekday() if hasattr(timestamp, "weekday") else 0)
@@ -221,7 +228,7 @@ class FraudDetectionModel:
     def train(self, db: Session, force_csv: str = None):
         """Standard train hook."""
         if force_csv: return self.train_from_csv(force_csv)
-        dataset_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "bank_transactions_data_2_augmented_clean_2.csv")
+        dataset_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "bank_transactions_data_2_augmented_clean_2.csv")
         if os.path.exists(dataset_path):
             return self.train_from_csv(dataset_path)
         print("[ML] No dataset found for Hardcore training.")

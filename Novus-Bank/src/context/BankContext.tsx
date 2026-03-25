@@ -5,6 +5,7 @@ export interface Account {
   type: 'checking' | 'savings' | 'investment';
   name: string;
   balance: number;
+  upiLiteBalance: number;
   accountNumber: string;
 }
 
@@ -37,6 +38,13 @@ export interface User {
   pin: string;
   baseline_location?: string;
   baseline_device?: string;
+  age?: number;
+  gender?: string;
+  address?: string;
+  yearly_income?: string;
+  total_debt?: string;
+  credit_score?: number;
+  num_credit_cards?: number;
 }
 
 interface BankContextType {
@@ -50,6 +58,7 @@ interface BankContextType {
   logout: () => void;
   reportEventToSentinelX: (eventType: string, details?: any) => Promise<void>;
   performTransaction: (type: Transaction['type'], amount: number, description: string, category: Transaction['category'], accountId?: string) => Promise<void>;
+  deleteTransaction: (id: string) => void;
   updateUser: (updatedFields: Partial<User>) => void;
   isLoading: boolean;
   isLocked: boolean;
@@ -75,7 +84,46 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const savedTransactions = localStorage.getItem('bank_transactions');
 
       if (savedUser && savedUser !== 'null') {
-        setUser(JSON.parse(savedUser));
+        const parsedUser: User = JSON.parse(savedUser);
+        
+        // Safety migration: Ensure all accounts have upiLiteBalance
+        let hasChanges = false;
+        const migrationAccounts = parsedUser.accounts.map(acc => {
+          if (acc.upiLiteBalance === undefined || acc.upiLiteBalance === null) {
+            hasChanges = true;
+            return { ...acc, upiLiteBalance: 3000.00 };
+          }
+          return acc;
+        });
+
+        if (hasChanges) {
+          parsedUser.accounts = migrationAccounts;
+          parsedUser.totalBalance = migrationAccounts.reduce((sum, a) => sum + (a.balance || 0) + (a.upiLiteBalance || 0), 0);
+        }
+
+        setUser(parsedUser);
+        
+        // Proactively fetch missing metadata if id exists
+        if (parsedUser.id && !parsedUser.age) {
+          fetch(`http://localhost:8000/api/accounts/${parsedUser.id}`)
+            .then(res => res.json())
+            .then(data => {
+              if (data.account) {
+                const acc = data.account;
+                setUser({
+                  ...parsedUser,
+                  age: acc.age,
+                  gender: acc.gender,
+                  address: acc.address,
+                  yearly_income: acc.yearly_income,
+                  total_debt: acc.total_debt,
+                  credit_score: acc.credit_score,
+                  num_credit_cards: acc.num_credit_cards
+                });
+              }
+            })
+            .catch(err => console.error('Failed to auto-refresh profile:', err));
+        }
       }
       if (savedTransactions && savedTransactions !== 'undefined') {
         setTransactions(JSON.parse(savedTransactions));
@@ -98,9 +146,7 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user]);
 
   useEffect(() => {
-    if (transactions.length > 0) {
-      localStorage.setItem('bank_transactions', JSON.stringify(transactions));
-    }
+    localStorage.setItem('bank_transactions', JSON.stringify(transactions));
   }, [transactions]);
 
   // 🔥 Polling Account Status (LOCKED state)
@@ -128,8 +174,33 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => clearInterval(interval);
   }, [user, currentUserAccountId]);
 
-  const [location, setLocation] = useState('Hyderabad');
-  const [device, setDevice] = useState('Windows / Chrome');
+  // Background Detection (Simulating real bank behavior)
+  const [location, setLocation] = useState('Detecting...');
+  const [device, setDevice] = useState('Detecting...');
+
+  useEffect(() => {
+    // 1. Automatic Device Detection
+    const ua = navigator.userAgent;
+    let detectedDevice = "Unknown Device";
+    if (ua.includes("Windows")) detectedDevice = "Windows PC / Chrome";
+    else if (ua.includes("Macintosh")) detectedDevice = "MacBook / Safari";
+    else if (ua.includes("iPhone")) detectedDevice = "iPhone / Mobile Safari";
+    else if (ua.includes("Android")) detectedDevice = "Android Phone / Chrome";
+    else if (ua.includes("Linux")) detectedDevice = "Linux Terminal / Curl";
+
+    // 2. Automatic Location Detection (Mocking IP-based detection for demo)
+    // In a real app, this would call an API like ipapi.co
+    const detectedLocation = "Hyderabad, IN (Auto-Detected)";
+
+    // 3. Support for "Hacker Overrides" via URL (Realistic for Testing/Demo)
+    // Example: bank.com/login?sim_loc=Moscow&sim_dev=Linux
+    const params = new URLSearchParams(window.location.search);
+    const simLoc = params.get('sim_loc');
+    const simDev = params.get('sim_dev');
+
+    setDevice(simDev || detectedDevice);
+    setLocation(simLoc || (simLoc ? simLoc : detectedLocation));
+  }, []);
 
   const reportEventToSentinelX = async (eventType: string, details: any = {}, overrideId?: number) => {
     const targetId = overrideId || currentUserAccountId;
@@ -172,8 +243,9 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
       { 
         id: '1', 
         type: 'checking', 
-        name: 'Primary Checking', 
+        name: 'Novus Bank', 
         balance: 24500.00, 
+        upiLiteBalance: 3000.00,
         accountNumber: backendUser.account_number 
       }
     ];
@@ -188,10 +260,17 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
       name: backendUser.name,
       accounts,
       cards,
-      totalBalance: 24500.00,
+      totalBalance: 27500.00,
       pin: '1234',
       baseline_location: backendUser.baseline_location,
-      baseline_device: backendUser.baseline_device
+      baseline_device: backendUser.baseline_device,
+      age: backendUser.age,
+      gender: backendUser.gender,
+      address: backendUser.address,
+      yearly_income: backendUser.yearly_income,
+      total_debt: backendUser.total_debt,
+      credit_score: backendUser.credit_score,
+      num_credit_cards: backendUser.num_credit_cards
     };
 
     setTransactions([
@@ -226,10 +305,6 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('TOTP_REQUIRED');
       }
 
-      // Handle Basic MFA Challenge (Mock Mailbox)
-      if (data.status === 'mfa_required') {
-        throw new Error(data.message || 'MFA Required');
-      }
 
       if (data.status === 'success') {
         return await _handleSuccessfulLogin(data.user);
@@ -334,8 +409,9 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
         { 
           id: '1', 
           type: 'checking', 
-          name: 'Primary Checking', 
+          name: 'Novus Bank', 
           balance: 24500.00, 
+          upiLiteBalance: 3000.00,
           accountNumber: backendAccount.account_number 
         }
       ];
@@ -350,7 +426,7 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
         name: backendAccount.holder_name,
         accounts,
         cards,
-        totalBalance: 24500.00,
+        totalBalance: 27500.00,
         pin: '1234'
       };
 
@@ -379,6 +455,9 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser({ ...user, ...updatedFields });
   };
 
+  const transactionInProcessRef = React.useRef(false);
+  const lastTransactionTimeRef = React.useRef(0);
+
   const performTransaction = async (
     type: Transaction['type'],
     amount: number,
@@ -386,63 +465,75 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
     category: Transaction['category'],
     accountId?: string
   ) => {
-    if (!user) return;
+    const now = Date.now();
+    if (!user || transactionInProcessRef.current || (now - lastTransactionTimeRef.current < 2000)) {
+      console.warn("[Bank] Transaction blocked: Already in process or debounced");
+      return;
+    }
 
+    transactionInProcessRef.current = true;
+    lastTransactionTimeRef.current = now;
     setIsLoading(true);
 
-    // Check with SentinelX before finalizing
-    const sentinelResponse = await reportEventToSentinelX('transaction', {
-      transaction_amount: amount,
-      description: description
-    });
+    try {
+      // Check with SentinelX before finalizing
+      const sentinelResponse = await reportEventToSentinelX('transaction', {
+        transaction_amount: amount,
+        description: description
+      });
 
-    if (sentinelResponse && sentinelResponse.account_status === 'Locked') {
-      setIsLoading(false);
-      throw new Error('Transaction denied: Account locked for security review.');
-    }
-
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    const targetAccountId = accountId || user.accounts[0].id;
-    const account = user.accounts.find(acc => acc.id === targetAccountId);
-
-    if ((type === 'withdrawal' || type === 'transfer') && account && account.balance < amount) {
-      setIsLoading(false);
-      throw new Error('Insufficient funds in the selected account');
-    }
-
-    const newTransaction: Transaction = {
-      id: Math.random().toString(36).substr(2, 9),
-      type,
-      category,
-      amount,
-      date: new Date().toISOString(),
-      description,
-      status: 'completed'
-    };
-
-    const newAccounts = user.accounts.map(acc => {
-      if (acc.id === targetAccountId) {
-        return {
-          ...acc,
-          balance: type === 'deposit' ? acc.balance + amount : acc.balance - amount
-        };
+      if (sentinelResponse && sentinelResponse.account_status === 'Locked') {
+        throw new Error('Transaction denied: Account locked for security review.');
       }
-      return acc;
-    });
 
-    const newTotalBalance = newAccounts.reduce((sum, acc) => sum + acc.balance, 0);
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
-    const updatedUser = {
-      ...user,
-      totalBalance: newTotalBalance,
-      accounts: newAccounts
-    };
+      const targetAccountId = accountId || user.accounts[0].id;
+      const account = user.accounts.find(acc => acc.id === targetAccountId);
 
-    setUser(updatedUser);
-    setTransactions(prev => [newTransaction, ...prev]);
+      if ((type === 'withdrawal' || type === 'transfer') && account && account.balance < amount) {
+        throw new Error('Insufficient funds in the selected account');
+      }
 
-    setIsLoading(false);
+      const newTransaction: Transaction = {
+        id: Math.random().toString(36).substr(2, 9),
+        type,
+        category,
+        amount,
+        date: new Date().toISOString(),
+        description,
+        status: 'completed'
+      };
+
+      const newAccounts = user.accounts.map(acc => {
+        if (acc.id === targetAccountId) {
+          return {
+            ...acc,
+            balance: type === 'deposit' ? acc.balance + amount : acc.balance - amount
+          };
+        }
+        return acc;
+      });
+
+      const newTotalBalance = newAccounts.reduce((sum, acc) => sum + acc.balance + acc.upiLiteBalance, 0);
+
+      const updatedUser = {
+        ...user,
+        totalBalance: newTotalBalance,
+        accounts: newAccounts
+      };
+
+      setUser(updatedUser);
+      setTransactions(prev => [newTransaction, ...prev]);
+
+    } finally {
+      setIsLoading(false);
+      transactionInProcessRef.current = false;
+    }
+  };
+
+  const deleteTransaction = (id: string) => {
+    setTransactions(prev => prev.filter(t => t.id !== id));
   };
 
   return (
@@ -454,6 +545,7 @@ export const BankProvider: React.FC<{ children: React.ReactNode }> = ({ children
       logout,
       reportEventToSentinelX,
       performTransaction,
+      deleteTransaction,
       updateUser,
       isLoading,
       isLocked,

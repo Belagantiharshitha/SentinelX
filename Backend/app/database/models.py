@@ -37,7 +37,21 @@ class Account(Base):
     risk_score = Column(Float, default=0.0)
     risk_level = Column(String, default="low")
 
+    # Profile Metadata (from dataset)
+    age = Column(Integer, nullable=True)
+    gender = Column(String, nullable=True)
+    address = Column(String, nullable=True)
+    yearly_income = Column(String, nullable=True)
+    total_debt = Column(String, nullable=True)
+    credit_score = Column(Integer, nullable=True)
+    num_credit_cards = Column(Integer, nullable=True)
+
     account_status = Column(String, default="active")
+    
+    # Remediation Workflow
+    is_verified = Column(Integer, default=1)
+    password_reset_required = Column(Integer, default=0)
+    
     updated_at = Column(
         DateTime,
         default=lambda: datetime.datetime.utcnow(),
@@ -59,6 +73,8 @@ class Event(Base):
     ip_address = Column(String)
     device = Column(String)
     location = Column(String)
+    user_agent = Column(String, nullable=True)
+    browser_fingerprint = Column(String, nullable=True)
     transaction_amount = Column(Float, nullable=True)
     timestamp = Column(DateTime, default=lambda: datetime.datetime.utcnow(), index=True)
 

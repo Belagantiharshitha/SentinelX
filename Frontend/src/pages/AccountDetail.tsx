@@ -9,7 +9,9 @@ import {
     MapPin,
     Activity,
     ShieldCheck,
-    Globe
+    Globe,
+    Mail,
+    RotateCcw
 } from 'lucide-react';
 import {
     AreaChart,
@@ -25,7 +27,7 @@ const API_BASE_URL = "http://localhost:8000/api";
 
 const AccountDetail = () => {
     const { id } = useParams();
-    const { sessions, lockdownAccount } = useSOC();
+    const { sessions, lockdownAccount, remediateVerify, remediateResetPassword } = useSOC();
     const fallbackSession = sessions.find(s => s.id === id) || sessions[0];
 
     const [accountData, setAccountData] = useState<any>(null);
@@ -60,7 +62,13 @@ const AccountDetail = () => {
         bank: 'SentinelX Internal',
         riskScore: accountData.risk_score,
         riskLevel: accountData.risk_level.toUpperCase() === 'SAFE' ? 'LOW' : accountData.risk_level.toUpperCase(),
-        status: (accountData.account_status || 'active').toLowerCase() === 'active' ? 'Active' : accountData.account_status,
+        status: (() => {
+            const s = (accountData.account_status || 'active').toLowerCase();
+            if (s === 'active') return 'Active';
+            if (s === 'monitoring') return 'Monitoring';
+            if (s === 'verification required') return 'Verification Required';
+            return 'Locked';
+        })(),
         device: accountData.baseline_primary_device || 'Unknown',
         location: accountData.baseline_primary_location || 'Unknown'
     } : fallbackSession;
@@ -141,9 +149,9 @@ const AccountDetail = () => {
 
                             <h2 className="text-lg font-bold mb-1 font-mono">{session.accountNumber}</h2>
                             <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-[0.2em] ${session.riskLevel === 'LOW' ? 'bg-cyber-primary/10 text-cyber-primary border border-cyber-primary/20' :
-                                session.riskLevel === 'MEDIUM' ? 'bg-emerald-400/10 text-emerald-400 border border-emerald-400/20' :
+                                session.riskLevel === 'MEDIUM' ? 'bg-amber-400/10 text-amber-500 border border-amber-400/20' :
                                     session.riskLevel === 'HIGH' ? 'bg-rose-400/10 text-rose-400 border border-rose-400/20' :
-                                        'bg-rose-500/10 text-rose-500 border border-rose-500/20'
+                                        'bg-rose-500/10 text-rose-500 border border-rose-500/30'
                                 }`}>
                                 {session.riskLevel} SENSITIVITY
                             </span>
@@ -154,7 +162,10 @@ const AccountDetail = () => {
                                         <ShieldCheck size={16} />
                                         <span className="text-xs font-medium uppercase tracking-wider">Status</span>
                                     </div>
-                                    <span className={`text-xs font-bold ${session.status === 'Active' ? 'text-cyber-primary' : 'text-rose-500'
+                                    <span className={`text-xs font-bold ${
+                                        session.status === 'Active' ? 'text-cyber-primary' : 
+                                        session.status === 'Locked' ? 'text-rose-500' :
+                                        session.status === 'Monitoring' ? 'text-amber-500' : 'text-blue-400'
                                         }`}>{session.status}</span>
                                 </div>
                                 <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5">
@@ -183,6 +194,23 @@ const AccountDetail = () => {
                         <ShieldAlert size={18} />
                         {session.status === 'Locked' ? 'ACCOUNT SECURED' : 'IMMEDIATE LOCKDOWN'}
                     </button>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <button
+                            onClick={() => id && remediateVerify(id)}
+                            className="p-4 rounded-2xl bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-all flex flex-col items-center gap-2 group"
+                        >
+                            <Mail size={18} className="group-hover:text-cyber-primary transition-colors" />
+                            <span className="text-[9px] font-black uppercase tracking-widest text-center">Verify Identity</span>
+                        </button>
+                        <button
+                            onClick={() => id && remediateResetPassword(id)}
+                            className="p-4 rounded-2xl bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:bg-white/10 transition-all flex flex-col items-center gap-2 group"
+                        >
+                            <RotateCcw size={18} className="group-hover:text-amber-500 transition-colors" />
+                            <span className="text-[9px] font-black uppercase tracking-widest text-center">Reset Password</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div className="lg:col-span-3 space-y-8">

@@ -81,9 +81,9 @@ def detect_attacks(db: Session, account_id: int, current_event: dict) -> dict:
     if last_valuable_event and last_valuable_event.location and current_location:
         if last_valuable_event.location != "Unknown" and current_location != "Unknown" and last_valuable_event.location != current_location:
             time_diff = (now - last_valuable_event.timestamp).total_seconds() / 60
-            if time_diff < 15: # Different location within 15 minutes
+            if time_diff < 30: # Increased from 15 for better demo reliability
                 detected_attacks.append("Impossible Travel")
-                total_contribution += 50
+                total_contribution += 60 # Slightly increased
 
     # 5. Transaction Anomaly
     if current_event.get("event_type") == "transaction":
@@ -96,6 +96,27 @@ def detect_attacks(db: Session, account_id: int, current_event: dict) -> dict:
     if current_event.get("event_type") == "corruption_event" or current_event.get("event_type") == "status_change":
         detected_attacks.append("Bank Corruption")
         total_contribution += 150 # Critical systemic risk
+
+    # 7. Browser Fingerprinting mismatch
+    current_ua = current_event.get("user_agent")
+    current_fingerprint = current_event.get("browser_fingerprint")
+    if current_ua or current_fingerprint:
+        last_good_browser_event = db.query(Event).filter(
+            Event.account_id == account_id,
+            Event.event_type.in_(["login_success", "transaction"]),
+            Event.id != current_event.get("id")
+        ).order_by(Event.timestamp.desc()).first()
+        
+        if last_good_browser_event:
+            is_mismatch = False
+            if current_ua and last_good_browser_event.user_agent and current_ua != last_good_browser_event.user_agent:
+                is_mismatch = True
+            if current_fingerprint and last_good_browser_event.browser_fingerprint and current_fingerprint != last_good_browser_event.browser_fingerprint:
+                is_mismatch = True
+            
+            if is_mismatch:
+                detected_attacks.append("Browser Fingerprint Mismatch")
+                total_contribution += 30
 
     return {
         "detected_attacks": list(set(detected_attacks)),

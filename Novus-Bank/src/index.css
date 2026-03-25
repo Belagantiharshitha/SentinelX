@@ -1,16 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
 :root {
-  /* Clean & Neat Banking Palette (Utilizing User's requested colors) */
+  /* Clean & Neat Banking Palette */
   --bg-color: #f7f9fc;
   --surface-color: #ffffff;
   --panel-color: #001233;
-  /* The dark navy from user palette */
+  --bg-main: #f8fafc;
+  --sidebar-bg: #001233;
+  --glass: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.4);
 
   --primary-color: #0353A4;
-  /* Royal Blue */
   --secondary-color: #2EC4B6;
-  /* Teal */
   --accent-color: #FF9F1C;
-  /* Orange */
 
   --text-primary: #101828;
   --text-secondary: #475467;
@@ -32,8 +34,8 @@
 }
 
 body {
-  font-family: 'Inter', -apple-system, sans-serif;
-  background-color: var(--bg-color);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background: var(--bg-main);
   color: var(--text-primary);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -44,12 +46,16 @@ body {
   display: flex;
   height: 100vh;
   overflow: hidden;
+  background: #f8fafc;
+  background-image:
+    radial-gradient(at 0% 0%, rgba(46, 196, 182, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(3, 83, 164, 0.05) 0px, transparent 50%);
 }
 
 .sidebar {
-  width: 260px;
-  background-color: var(--panel-color);
-  color: var(--text-on-dark);
+  background: var(--sidebar-bg);
+  width: 280px;
+  color: white;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -57,9 +63,8 @@ body {
 
 .main-view {
   flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-  overflow-x: hidden;
+  overflow-y: auto;
+  position: relative;
 }
 
 /* Typography & Headings */
@@ -128,6 +133,14 @@ button {
   padding: 16px;
   border-bottom: 1px solid var(--border-color);
   vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+.hover-row:hover {
+  background-color: #f8fafc;
 }
 
 /* Input Styles */

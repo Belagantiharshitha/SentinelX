@@ -10,7 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 router = APIRouter()
 
-def run_simulation(db: Session, account_id: int, events: list):
+async def run_simulation(db: Session, account_id: int, events: list):
     account = db.query(models.Account).filter(models.Account.id == account_id).first()
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
@@ -59,6 +59,9 @@ def run_simulation(db: Session, account_id: int, events: list):
         new_event.risk_contribution = risk_results["new_risk_score"]
         new_event.detected_attack_type = ", ".join(attack_results["detected_attacks"])
         new_event.ml_fraud_score = ml_score
+        new_event.ml_explanation = ", ".join(ml_prediction.get("explanation", []))
+        new_event.ml_pca_x = ml_prediction.get("pca", [0, 0])[0]
+        new_event.ml_pca_y = ml_prediction.get("pca", [0, 0])[1]
         
         # 5. Update Account Risk
         account.risk_score = risk_results["new_risk_score"]
@@ -76,7 +79,7 @@ def run_simulation(db: Session, account_id: int, events: list):
     # 6. Trigger ONE Automated Response at the end of simulation
     # Use the max ML score and collected explanations for the incident report
     final_risk_results["ml_fraud_score"] = max_ml_fraud_score
-    action_taken = process_automated_response(db, account, final_risk_results, final_attack_results, ml_explanation=all_ml_explanations)
+    action_taken = await process_automated_response(db, account, final_risk_results, final_attack_results, ml_explanation=all_ml_explanations)
     
     db.commit()
     db.refresh(account)
@@ -101,7 +104,7 @@ async def simulate_credential_stuffing(account_id: int, db: Session = Depends(ge
         {"event_type": "login_failed", "ip_address": "1.1.1.1", "device": "unknown", "location": "USA", "timestamp": now - timedelta(seconds=30)},
         {"event_type": "login_failed", "ip_address": "1.1.1.1", "device": "unknown", "location": "USA", "timestamp": now}
     ]
-    return run_simulation(db, account_id, events)
+    return await run_simulation(db, account_id, events)
 
 @router.post("/brute-force")
 async def simulate_brute_force(account_id: int, db: Session = Depends(get_db)):
@@ -109,7 +112,7 @@ async def simulate_brute_force(account_id: int, db: Session = Depends(get_db)):
     events = []
     for i in range(6):
         events.append({"event_type": "login_failed", "ip_address": "2.2.2.2", "device": "unknown", "location": "UK", "timestamp": now - timedelta(seconds=(6-i)*10)})
-    return run_simulation(db, account_id, events)
+    return await run_simulation(db, account_id, events)
 
 @router.post("/account-takeover")
 async def simulate_account_takeover(account_id: int, db: Session = Depends(get_db)):
@@ -120,7 +123,7 @@ async def simulate_account_takeover(account_id: int, db: Session = Depends(get_d
         {"event_type": "login_success", "ip_address": "3.3.3.3", "device": "new_tab", "location": "Russia", "timestamp": now - timedelta(minutes=5)},
         {"event_type": "transaction", "ip_address": "3.3.3.3", "device": "new_tab", "location": "Russia", "transaction_amount": 2000, "timestamp": now}
     ]
-    return run_simulation(db, account_id, events)
+    return await run_simulation(db, account_id, events)
 
 @router.post("/impossible-travel")
 async def simulate_impossible_travel(account_id: int, db: Session = Depends(get_db)):
@@ -129,7 +132,7 @@ async def simulate_impossible_travel(account_id: int, db: Session = Depends(get_
         {"event_type": "login_success", "ip_address": "4.4.4.4", "device": "iPhone", "location": "New York", "timestamp": now - timedelta(minutes=10)},
         {"event_type": "transaction", "ip_address": "5.5.5.5", "device": "iPhone", "location": "Tokyo", "transaction_amount": 100, "timestamp": now}
     ]
-    return run_simulation(db, account_id, events)
+    return await run_simulation(db, account_id, events)
 
 @router.post("/transaction-anomaly")
 async def simulate_transaction_anomaly(account_id: int, db: Session = Depends(get_db)):
@@ -137,7 +140,7 @@ async def simulate_transaction_anomaly(account_id: int, db: Session = Depends(ge
     events = [
         {"event_type": "transaction", "ip_address": "6.6.6.6", "device": "Chrome", "location": "Home", "transaction_amount": 10000, "timestamp": now}
     ]
-    return run_simulation(db, account_id, events)
+    return await run_simulation(db, account_id, events)
 
 @router.post("/bank-corruption")
 async def simulate_bank_corruption(account_id: int, db: Session = Depends(get_db)):
@@ -146,7 +149,17 @@ async def simulate_bank_corruption(account_id: int, db: Session = Depends(get_db
     events = [
         {"event_type": "status_change", "ip_address": "internal-admin", "device": "Core-Server", "location": "Data Center", "timestamp": now}
     ]
-    return run_simulation(db, account_id, events)
+    return await run_simulation(db, account_id, events)
+
+@router.post("/fingerprint-mismatch")
+async def simulate_fingerprint_mismatch(account_id: int, db: Session = Depends(get_db)):
+    now = datetime.utcnow()
+    # Simulates a login with a completely different fingerprint and user agent
+    events = [
+        {"event_type": "login_success", "ip_address": "8.8.8.8", "device": "Safe-MacBook", "location": "London", "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", "browser_fingerprint": "fp-original-999", "timestamp": now - timedelta(hours=2)},
+        {"event_type": "login_success", "ip_address": "8.8.8.8", "device": "Safe-MacBook", "location": "London", "user_agent": "Mozilla/5.0 (X11; Linux x86_64)", "browser_fingerprint": "fp-attacker-666", "timestamp": now}
+    ]
+    return await run_simulation(db, account_id, events)
 @router.post("/reset-account")
 async def reset_account_security(account_number: str, db: Session = Depends(get_db)):
     account = db.query(models.Account).filter(models.Account.account_number == account_number).first()
@@ -159,10 +172,10 @@ async def reset_account_security(account_number: str, db: Session = Depends(get_
     account.account_status = "Active"
     
     # 2. Delete associated alerts/incidents
-    db.query(models.Incident).filter(models.Incident.account_id == account_id).delete()
+    db.query(models.Incident).filter(models.Incident.account_id == account.id).delete()
     
     # 3. Optional: Delete events to clear the timeline completely for the demo
-    db.query(models.Event).filter(models.Event.account_id == account_id).delete()
+    db.query(models.Event).filter(models.Event.account_id == account.id).delete()
     
     db.commit()
     return {"status": "success", "message": f"Security status for {account.account_number} has been hard-reset."}

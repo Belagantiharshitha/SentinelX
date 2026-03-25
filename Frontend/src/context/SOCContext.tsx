@@ -14,6 +14,8 @@ interface SOCContextType {
     triggerSimulation: (type: string, targetId?: string) => Promise<void>;
     resolveAlert: (id: string) => void;
     lockdownAccount: (id: string) => Promise<void>;
+    remediateVerify: (id: string) => Promise<void>;
+    remediateResetPassword: (id: string) => Promise<void>;
     refreshData: () => void;
 }
 
@@ -64,7 +66,13 @@ export const SOCProvider = ({ children }: { children: ReactNode }) => {
                         bank: 'SentinelX Internal',
                         riskScore: acc.risk_score || 0,
                         riskLevel: riskLevel,
-                        status: (acc.account_status || 'active').toLowerCase() === 'active' ? 'Active' : 'Locked',
+                        status: (() => {
+                            const s = (acc.account_status || 'active').toLowerCase();
+                            if (s === 'active') return 'Active';
+                            if (s === 'monitoring') return 'Monitoring';
+                            if (s === 'verification required') return 'Verification Required';
+                            return 'Locked';
+                        })(),
                         lastEvent: 'System Baseline',
                         device: acc.baseline_primary_device || 'Unknown',
                         location: acc.baseline_primary_location || 'Unknown',
@@ -88,19 +96,14 @@ export const SOCProvider = ({ children }: { children: ReactNode }) => {
                     message: inc.ai_summary || `Automated response: ${inc.action_taken}`,
                     holderName: inc.account?.holder_name,
                     accountNumber: inc.account?.account_number,
+                    accountId: String(inc.account_id),
                     mlFraudScore: inc.ml_fraud_score ?? null,
                     mlExplanation: inc.ml_explanation ?? null
                 }));
 
-                // Trigger toasts for NEW alerts
+                // Toasts removed as requested: alerts already appear in Notification page
                 mappedAlerts.forEach(alert => {
-                    // Only toast High or Critical to reduce noise
-                    if (!seenAlertIds.has(alert.id) && (alert.severity === 'HIGH' || alert.severity === 'CRITICAL')) {
-                        toast(`${alert.severity}: ${alert.type} detected on ${alert.holderName || 'Node'}`, {
-                            icon: '🚨',
-                            duration: 5000,
-                            id: alert.id // Prevent duplicates
-                        });
+                    if (!seenAlertIds.has(alert.id)) {
                         setSeenAlertIds(prev => new Set(prev).add(alert.id));
                     }
                 });
@@ -141,7 +144,27 @@ export const SOCProvider = ({ children }: { children: ReactNode }) => {
         else if (typeLower.includes("travel")) endpoint = "impossible-travel";
         else if (typeLower.includes("transaction")) endpoint = "transaction-anomaly";
         else if (typeLower.includes("corruption")) endpoint = "bank-corruption";
-        else if (typeLower.includes("sql")) endpoint = "sql-injection"; // generic or default endpoint later
+        else if (typeLower.includes("fingerprint")) endpoint = "fingerprint-mismatch";
+        else if (typeLower.includes("reset")) {
+            // Special case for reset: uses account_number instead of account_id
+            const targetAccount = sessions.find(s => s.id === accountId);
+            if (!targetAccount) return;
+            
+            toast.loading(`Resetting ${targetAccount.holderName}...`, { id: 'sim-loading', duration: 2000 });
+            try {
+                const res = await fetch(`${API_BASE_URL}/simulate/reset-account?account_number=${targetAccount.accountNumber}`, {
+                    method: 'POST'
+                });
+                if (res.ok) {
+                    toast.success(`Account ${targetAccount.accountNumber} Hard-Reset!`, { id: 'sim-loading' });
+                    fetchData();
+                    return await res.json();
+                }
+            } catch (err) {
+                toast.error("Network error during reset", { id: 'sim-loading' });
+            }
+            return;
+        }
         else endpoint = "brute-force"; // Default fallback if not matched exactly to keep UI alive
 
         if (!endpoint) return;
@@ -168,18 +191,34 @@ export const SOCProvider = ({ children }: { children: ReactNode }) => {
     const lockdownAccount = async (id: string) => {
         toast.loading("Initiating emergency lockdown...", { id: 'lockdown-loading' });
         try {
-            const res = await fetch(`${API_BASE_URL}/accounts/${id}/lockdown`, {
-                method: 'POST'
-            });
+            const res = await fetch(`${API_BASE_URL}/accounts/${id}/lockdown`, { method: 'POST' });
             if (res.ok) {
                 toast.success("Account locked successfully", { id: 'lockdown-loading' });
                 fetchData();
-            } else {
-                toast.error("Failed to lock account", { id: 'lockdown-loading' });
-            }
-        } catch (error) {
-            toast.error("Network error during lockdown", { id: 'lockdown-loading' });
-        }
+            } else toast.error("Failed to lock account", { id: 'lockdown-loading' });
+        } catch (error) { toast.error("Network error", { id: 'lockdown-loading' }); }
+    };
+
+    const remediateVerify = async (id: string) => {
+        toast.loading("Sending verification challenge...", { id: 'remediate-loading' });
+        try {
+            const res = await fetch(`${API_BASE_URL}/accounts/${id}/remediate-verify`, { method: 'POST' });
+            if (res.ok) {
+                toast.success("Verification challenge sent.", { id: 'remediate-loading' });
+                fetchData();
+            } else toast.error("Remediation failed", { id: 'remediate-loading' });
+        } catch (error) { toast.error("Network error", { id: 'remediate-loading' }); }
+    };
+
+    const remediateResetPassword = async (id: string) => {
+        toast.loading("Enforcing password reset...", { id: 'remediate-loading' });
+        try {
+            const res = await fetch(`${API_BASE_URL}/accounts/${id}/remediate-force-password-reset`, { method: 'POST' });
+            if (res.ok) {
+                toast.success("Password reset enforced.", { id: 'remediate-loading' });
+                fetchData();
+            } else toast.error("Remediation failed", { id: 'remediate-loading' });
+        } catch (error) { toast.error("Network error", { id: 'remediate-loading' }); }
     };
 
     const resolveAlert = (id: string) => {
@@ -200,6 +239,8 @@ export const SOCProvider = ({ children }: { children: ReactNode }) => {
                 triggerSimulation,
                 resolveAlert,
                 lockdownAccount,
+                remediateVerify,
+                remediateResetPassword,
                 refreshData: fetchData
             }}
         >

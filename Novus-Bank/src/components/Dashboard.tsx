@@ -17,8 +17,6 @@ import {
   Edit2,
   CreditCard,
   Mail,
-  Eye,
-  EyeOff,
   ShieldCheck,
   Lock,
   ArrowLeft,
@@ -33,7 +31,9 @@ import {
   PiggyBank,
   ChevronRightCircle,
   Home,
-  RefreshCcw
+  RefreshCcw,
+  Key,
+  Trash2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useNavigate } from 'react-router-dom';
@@ -47,12 +47,12 @@ const SidebarNav: React.FC<{ active: boolean; onClick: () => void; icon: React.R
 );
 
 const ProfileBox: React.FC<{ icon: React.ReactNode; label: string; val: string }> = ({ icon, label, val }) => (
-  <motion.div whileHover={{ x: 5 }} style={{ background: '#f8fafc', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b', marginBottom: '10px' }}>
+  <motion.div whileHover={{ x: 5 }} style={{ background: '#f8fafc', padding: '16px 20px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', marginBottom: '6px' }}>
       {icon}
-      <span style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</span>
+      <span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
     </div>
-    <p style={{ fontSize: '1.1rem', fontWeight: 800, color: '#101828' }}>{val}</p>
+    <p style={{ fontSize: '0.95rem', fontWeight: 800, color: '#101828' }}>{val}</p>
   </motion.div>
 );
 
@@ -61,27 +61,36 @@ const PinModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: () =
   const [error, setError] = useState(false);
   const correctPin = '1234';
 
-  const handleKeypad = (val: string) => {
-    if (pin.length < 4) {
-      const newPin = pin + val;
-      setPin(newPin);
-      if (newPin.length === 4) {
-        if (newPin === correctPin) {
-          onSuccess();
-          setTimeout(() => setPin(''), 100);
-        } else {
-          setError(true);
-          setTimeout(() => {
-            setPin('');
-            setError(false);
-          }, 800);
+  const handleKeypad = React.useCallback((val: string) => {
+    if (!/^\d$/.test(val)) return; // Only allow digits
+    
+    setPin(prev => {
+      if (prev.length < 4) {
+        const newPin = prev + val;
+        if (newPin.length === 4) {
+          if (newPin === correctPin) {
+            onSuccess();
+            setTimeout(() => setPin(''), 100);
+          } else {
+            setError(true);
+            setTimeout(() => {
+              setPin('');
+              setError(false);
+            }, 800);
+          }
         }
+        return newPin;
       }
-    }
-  };
+      return prev;
+    });
+  }, [onSuccess, correctPin]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setPin('');
+      setError(false);
+      return;
+    }
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key >= '0' && e.key <= '9') {
@@ -95,7 +104,7 @@ const PinModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: () =
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, pin, handleKeypad]);
+  }, [isOpen, handleKeypad, onClose]);
 
   return (
     <AnimatePresence>
@@ -218,9 +227,530 @@ const DigitalBankingShowcase = () => {
   );
 };
 
-export const Dashboard: React.FC = () => {
-  const { user, transactions, logout, performTransaction, updateUser, location, setLocation, device, setDevice, reportEventToSentinelX, setupTotp, verifyTotp } = useBank();
+// View Components
+const AccountsView = ({ user, revealedAccountIds, onSend, onCheckBalance }: any) => (
+  <div className="tab-pane">
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+      <div>
+        <h2 style={{ fontSize: '1.75rem', fontWeight: 900, color: '#101828', letterSpacing: '-0.02em' }}>Financial Portfolio</h2>
+        <p style={{ color: '#64748b', fontWeight: 600, fontSize: '0.85rem', marginTop: '4px' }}>Securely managed assets.</p>
+      </div>
+      <motion.button 
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        className="btn btn-primary" 
+        style={{ padding: '10px 20px', borderRadius: '12px', fontSize: '0.85rem', background: '#0353A4', border: 'none', fontWeight: 800 }} 
+        onClick={onSend}
+      >
+        <Plus size={18} style={{ marginRight: '6px' }} /> Add Asset
+      </motion.button>
+    </div>
+
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '24px' }}>
+      {user.accounts.map((acc: any) => {
+        const isRevealed = revealedAccountIds.includes(acc.id);
+        return (
+          <motion.div 
+            key={acc.id} 
+            whileHover={{ y: -4, boxShadow: '0 20px 40px rgba(0,0,0,0.06)' }} 
+            style={{ 
+              background: 'white', 
+              padding: '24px', 
+              borderRadius: '24px', 
+              border: '1px solid #f1f5f9', 
+              boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
+              position: 'relative'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ background: '#f1f5f9', width: '44px', height: '44px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0353A4' }}>
+                  <Building2 size={24} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 900, color: '#101828' }}>{acc.name}</h3>
+                  <p style={{ color: '#94a3b8', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>{acc.accountNumber}</p>
+                </div>
+              </div>
+              <div style={{ background: '#ecfdf5', color: '#10b981', padding: '4px 10px', borderRadius: '8px', fontSize: '0.65rem', fontWeight: 900 }}>ACTIVE</div>
+            </div>
+
+            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '16px', marginBottom: '24px' }}>
+              <p style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Book Balance</p>
+              <h2 style={{ fontSize: '1.5rem', color: '#101828', fontWeight: 900 }}>
+                {isRevealed ? `₹${acc.balance.toLocaleString('en-IN')}` : '••••••'}
+              </h2>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button 
+                className="btn btn-primary" 
+                style={{ flex: 1.5, padding: '12px', fontSize: '0.85rem', borderRadius: '12px', fontWeight: 800, background: '#101828' }} 
+                onClick={onSend}
+              >
+                Send Money
+              </button>
+              <button 
+                className="btn btn-outline" 
+                style={{ flex: 1, padding: '12px', fontSize: '0.85rem', color: isRevealed ? '#ef4444' : '#101828', borderColor: '#e2e8f0', borderRadius: '12px', fontWeight: 800 }} 
+                onClick={() => onCheckBalance(acc.id)}
+              >
+                {isRevealed ? 'Hide Balance' : 'Check Balance'}
+              </button>
+            </div>
+          </motion.div>
+        );
+      })}
+
+      {user.accounts.length > 0 && (
+        <motion.div 
+          whileHover={{ y: -4, boxShadow: '0 20px 40px rgba(255,159,28,0.1)' }} 
+          style={{ 
+            background: 'linear-gradient(135deg, #FFF6E9 0%, #FFFFFF 100%)', 
+            padding: '24px', 
+            borderRadius: '24px', 
+            border: '1px solid #FFF1E0', 
+            boxShadow: '0 4px 12px rgba(255,159,28,0.05)',
+            position: 'relative'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ background: '#FF9F1C', width: '44px', height: '44px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                <Zap size={24} fill="white" />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 900, color: '#101828' }}>UPI Lite</h3>
+                <p style={{ color: '#BC6C25', fontWeight: 700, fontSize: '0.75rem', textTransform: 'uppercase' }}>Digital Wallet</p>
+              </div>
+            </div>
+            <div style={{ background: '#FFF6E9', color: '#FF9F1C', padding: '4px 10px', borderRadius: '8px', fontSize: '0.65rem', fontWeight: 900, border: '1px solid rgba(255,159,28,0.2)' }}>SECURE</div>
+          </div>
+
+          <div style={{ background: 'white', padding: '16px', borderRadius: '16px', border: '1px solid #FFF1E0', marginBottom: '24px' }}>
+            <p style={{ fontSize: '0.6rem', color: '#BC6C25', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Available Balance</p>
+            <h2 style={{ fontSize: '1.5rem', color: '#BC6C25', fontWeight: 900 }}>
+              {revealedAccountIds.includes(`upi_${user.accounts[0].id}`) 
+                ? `₹${(user.accounts[0].upiLiteBalance || 3000).toLocaleString('en-IN')}` 
+                : '••••••'}
+            </h2>
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button 
+              className="btn btn-primary" 
+              style={{ flex: 1.5, padding: '12px', fontSize: '0.85rem', borderRadius: '12px', fontWeight: 800, background: '#FF9F1C', border: 'none' }} 
+              onClick={onSend}
+            >
+              Scan & Pay
+            </button>
+            <button 
+              className="btn btn-outline" 
+              style={{ flex: 1, padding: '12px', fontSize: '0.85rem', color: revealedAccountIds.includes(`upi_${user.accounts[0].id}`) ? '#ef4444' : '#FF9F1C', borderColor: '#FF9F1C', borderRadius: '12px', fontWeight: 800, background: 'rgba(255,159,28,0.05)' }} 
+              onClick={() => onCheckBalance(`upi_${user.accounts[0].id}`)}
+            >
+              {revealedAccountIds.includes(`upi_${user.accounts[0].id}`) ? 'Hide Balance' : 'Check Balance'}
+            </button>
+          </div>
+        </motion.div>
+      )}
+    </div>
+  </div>
+);
+
+const TransactionsView = ({ transactions, onDelete }: any) => (
+  <div className="tab-pane">
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+      <h2 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Transaction Archive</h2>
+      <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>Total Records: {transactions.length}</div>
+    </div>
+    
+    <div style={{ background: 'white', borderRadius: '20px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+      <div style={{ overflowX: 'auto' }}>
+        <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ height: '60px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+              <th style={{ paddingLeft: '24px', textAlign: 'left', fontSize: '0.75rem', fontWeight: 900, color: '#64748b', textTransform: 'uppercase' }}>Type</th>
+              <th style={{ textAlign: 'left', fontSize: '0.75rem', fontWeight: 900, color: '#64748b', textTransform: 'uppercase' }}>Description</th>
+              <th style={{ textAlign: 'left', fontSize: '0.75rem', fontWeight: 900, color: '#64748b', textTransform: 'uppercase' }}>Date</th>
+              <th style={{ textAlign: 'left', fontSize: '0.75rem', fontWeight: 900, color: '#64748b', textTransform: 'uppercase' }}>Category</th>
+              <th style={{ textAlign: 'right', fontSize: '0.75rem', fontWeight: 900, color: '#64748b', textTransform: 'uppercase' }}>Amount</th>
+              <th style={{ paddingRight: '24px', textAlign: 'right', fontSize: '0.75rem', fontWeight: 900, color: '#64748b', textTransform: 'uppercase' }}>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {transactions.length === 0 ? (
+              <tr>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '48px', color: '#94a3b8', fontSize: '0.9rem' }}>No transaction records found.</td>
+              </tr>
+            ) : (
+              transactions.map((t: any, idx: number) => (
+                <motion.tr 
+                  key={t.id || idx} 
+                  initial={{ opacity: 0 }} 
+                  animate={{ opacity: 1 }} 
+                  transition={{ delay: idx * 0.02 }} 
+                  style={{ height: '72px', borderBottom: '1px solid #f1f5f9' }}
+                  className="hover-row"
+                >
+                  <td style={{ paddingLeft: '24px' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: t.type === 'deposit' ? '#ecfdf5' : '#fef2f2', color: t.type === 'deposit' ? '#10b981' : '#ef4444' }}>
+                      {t.type === 'deposit' ? <ArrowDownLeft size={20} /> : <ArrowUpRight size={20} />}
+                    </div>
+                  </td>
+                  <td><p style={{ fontWeight: 700, fontSize: '0.95rem', color: '#101828' }}>{t.description}</p></td>
+                  <td style={{ color: '#64748b', fontWeight: 500, fontSize: '0.85rem' }}>{new Date(t.date).toLocaleDateString()}</td>
+                  <td><span style={{ textTransform: 'uppercase', fontSize: '0.7rem', background: '#f1f5f9', padding: '6px 12px', borderRadius: '8px', color: '#475467', fontWeight: 800 }}>{t.category}</span></td>
+                  <td style={{ textAlign: 'right', fontWeight: 800, fontSize: '1rem', color: t.type === 'deposit' ? '#10b981' : '#101828' }}>
+                    {t.type === 'deposit' ? '+' : '-'} ₹{t.amount.toLocaleString('en-IN')}
+                  </td>
+                  <td style={{ paddingRight: '24px', textAlign: 'right' }}>
+                    <button 
+                      onClick={() => {
+                        if (window.confirm("Are you sure you want to remove this transaction from your history?")) {
+                          onDelete(t.id);
+                        }
+                      }} 
+                      style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '8px', borderRadius: '8px', transition: 'all 0.2s' }}
+                      onMouseEnter={(e: any) => { e.target.style.color = '#ef4444'; e.target.style.background = '#fef2f2'; }}
+                      onMouseLeave={(e: any) => { e.target.style.color = '#94a3b8'; e.target.style.background = 'none'; }}
+                      title="Remove from history"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </td>
+                </motion.tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+);
+
+const ProfileView = ({ user, isEditing, setIsEditing, profileName, setProfileName, location, setLocation, device, setDevice, onSave, setupTotp, verifyTotp }: any) => {
+  const [totpSetupData, setTotpSetupData] = useState<{secret: string, qr_code_base64: string} | null>(null);
+  const [verifyCode, setVerifyCode] = useState('');
+  const [totpError, setTotpError] = useState('');
+  const [totpSuccess, setTotpSuccess] = useState('');
   const navigate = useNavigate();
+  
+  const handleSetupTotp = async () => {
+    setTotpError('');
+    const data = await setupTotp(user.id);
+    if (data) {
+      setTotpSetupData(data);
+    } else {
+      setTotpError('Failed to initialize matching sequence.');
+    }
+  };
+
+  const handleVerifyTotp = async () => {
+    setTotpError('');
+    setTotpSuccess('');
+    const success = await verifyTotp(user.id, verifyCode);
+    if (success) {
+      setTotpSuccess('Authenticator App successfully linked!');
+      setTotpSetupData(null);
+    } else {
+      setTotpError('Invalid code. Please try again.');
+    }
+  };
+
+  return (
+  <div className="tab-pane">
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+      <h2 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Profile Core</h2>
+      {!isEditing && <button className="btn btn-outline" style={{ borderRadius: '12px', padding: '8px 16px', fontSize: '0.85rem' }} onClick={() => setIsEditing(true)}><Edit2 size={16} /> Edit Info</button>}
+    </div>
+    <div style={{ background: 'white', padding: '32px', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: 'var(--shadow-md)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '24px' }}>
+        <div style={{ width: '70px', height: '70px', borderRadius: '50%', background: 'linear-gradient(135deg, #0353A4, #2EC4B6)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem', fontWeight: 900, boxShadow: 'var(--shadow-sm)', border: '2px solid white' }}>{profileName.charAt(0)}</div>
+        <div style={{ flex: 1 }}>
+          {isEditing ? (
+            <input type="text" className="form-input" style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '4px', border: 'none', borderBottom: '2px solid #0353A4', borderRadius: 0, paddingLeft: 0, height: '40px', width: '100%' }} value={profileName} onChange={e => setProfileName(e.target.value)} />
+          ) : (
+            <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#101828', letterSpacing: '-0.01em', marginBottom: '2px' }}>{user.name}</h3>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#2EC4B6' }}>
+            <Sparkles size={14} />
+            <p style={{ fontWeight: 700, fontSize: '0.85rem', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Diamond Premier Member</p>
+          </div>
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+        <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div style={{ position: 'relative', width: '80px', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+             <svg style={{ position: 'absolute', transform: 'rotate(-90deg)', width: '100%', height: '100%' }}>
+                <circle cx="40" cy="40" r="35" fill="transparent" stroke="#e2e8f0" strokeWidth="6" />
+                <circle cx="40" cy="40" r="35" fill="transparent" stroke="#2EC4B6" strokeWidth="6" strokeDasharray="220" strokeDashoffset={220 - (220 * (user.credit_score || 0)) / 900} strokeLinecap="round" />
+             </svg>
+             <div style={{ textAlign: 'center' }}>
+                <p style={{ fontSize: '1.1rem', fontWeight: 800, color: '#101828', lineHeight: 1 }}>{user.credit_score || 'N/A'}</p>
+                <p style={{ fontSize: '0.5rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Score</p>
+             </div>
+          </div>
+          <div>
+            <p style={{ fontSize: '0.8rem', fontWeight: 800, color: '#101828' }}>Credit Standing</p>
+            <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#2EC4B6' }}>Excellent</p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <ProfileBox icon={<CreditCard size={18} color="#0353A4" />} label="ACC NO :" val={user.accounts[0]?.accountNumber || 'N/A'} />
+          <ProfileBox icon={<Mail size={18} color="#0353A4" />} label="Official Contact" val={user.email} />
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <ProfileBox icon={<UserIcon size={18} color="#0353A4" />} label="Personal Origin" val={`${user.age || 'N/A'} Yrs • ${user.gender || 'N/A'}`} />
+          <div style={{ background: 'linear-gradient(135deg, #0353A4 0%, #001233 100%)', padding: '16px', borderRadius: '12px', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <p style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', opacity: 0.7 }}>Total Liabilities</p>
+              <p style={{ fontSize: '1rem', fontWeight: 800 }}>{user.total_debt || 'N/A'}</p>
+            </div>
+            <div style={{ opacity: 0.2 }}><History size={32} /></div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ marginTop: '32px', borderTop: '1px solid #f1f5f9', paddingTop: '24px' }}>
+        <h4 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '16px', color: '#0353A4', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Session Context</h4>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+          <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b', marginBottom: '6px' }}>
+              <Globe size={16} />
+              <span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase' }}>Current Location</span>
+            </div>
+            {isEditing ? (
+              <input 
+                type="text" 
+                className="form-input" 
+                value={location} 
+                onChange={(e) => setLocation(e.target.value)}
+                style={{ width: '100%', padding: '6px 10px', fontSize: '0.85rem' }}
+              />
+            ) : (
+              <p style={{ fontSize: '0.9rem', fontWeight: 800, color: '#101828' }}>{location}</p>
+            )}
+          </div>
+
+          <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b', marginBottom: '6px' }}>
+              <Zap size={16} />
+              <span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase' }}>Current Device</span>
+            </div>
+            {isEditing ? (
+              <input 
+                type="text" 
+                className="form-input" 
+                value={device} 
+                onChange={(e) => setDevice(e.target.value)}
+                style={{ width: '100%', padding: '6px 10px', fontSize: '0.85rem' }}
+              />
+            ) : (
+              <p style={{ fontSize: '0.9rem', fontWeight: 800, color: '#101828' }}>{device}</p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ marginTop: '32px', padding: '24px', borderRadius: '20px', background: 'white', border: '1px solid #e2e8f0', boxShadow: 'var(--shadow-sm)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+          <div style={{ padding: '8px', background: '#f8fafc', borderRadius: '10px', color: '#0353A4' }}>
+            <ShieldCheck size={22} />
+          </div>
+          <div>
+            <h4 style={{ fontSize: '1rem', fontWeight: 800 }}>Authentication Layer (TOTP)</h4>
+            <p style={{ fontSize: '0.75rem', color: '#64748b' }}>Enhanced account isolation layer.</p>
+          </div>
+        </div>
+
+        {!totpSetupData ? (
+          <button 
+            onClick={handleSetupTotp}
+            style={{ padding: '12px 24px', background: '#0353A4', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            <Key size={18} />
+            Set Up Authenticator App
+          </button>
+        ) : (
+          <div style={{ background: '#f8fafc', padding: '24px', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>
+            <h5 style={{ fontWeight: 800, marginBottom: '16px', color: '#101828' }}>1. Scan this QR Code with your Authenticator App</h5>
+            <div style={{ background: 'white', padding: '16px', display: 'inline-block', borderRadius: '12px', marginBottom: '8px', boxShadow: 'var(--shadow-sm)' }}>
+              <img src={`data:image/png;base64,${totpSetupData.qr_code_base64}`} alt="TOTP QR Code" style={{ width: '200px', height: '200px' }} />
+            </div>
+            
+            <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '16px' }}>
+              Can't scan? Use this setup key: <br/>
+              <code style={{ background: '#e2e8f0', padding: '4px 8px', borderRadius: '6px', fontWeight: 800, fontSize: '0.9rem', color: '#0353A4', letterSpacing: '0.1em' }}>{totpSetupData.secret}</code>
+            </p>
+            
+            <h5 style={{ fontWeight: 800, marginBottom: '8px', color: '#101828', marginTop: '16px' }}>2. Enter the 6-digit code</h5>
+            <div style={{ display: 'flex', gap: '12px', maxWidth: '300px' }}>
+              <input 
+                type="text" 
+                className="form-input" 
+                placeholder="000000" 
+                maxLength={6}
+                value={verifyCode}
+                onChange={e => setVerifyCode(e.target.value.replace(/\D/g, ''))}
+                style={{ textAlign: 'center', fontSize: '1.25rem', letterSpacing: '0.2em', fontWeight: 'bold' }} 
+              />
+              <button 
+                onClick={handleVerifyTotp}
+                style={{ padding: '0 24px', background: '#2EC4B6', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 800, cursor: 'pointer' }}
+              >
+                Verify
+              </button>
+            </div>
+          </div>
+        )}
+
+        {totpError && <p style={{ color: '#ef4444', marginTop: '16px', fontWeight: 600, fontSize: '0.9rem' }}>{totpError}</p>}
+        {totpSuccess && <p style={{ color: '#10b981', marginTop: '16px', fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}><CheckCircle2 size={18} /> {totpSuccess}</p>}
+      </div>
+
+      <div style={{ marginTop: '48px', padding: '32px', borderRadius: '24px', background: 'linear-gradient(135deg, #0353A4 0%, #001233 100%)', color: 'white', border: '1px solid rgba(255,255,255,0.1)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '24px' }}>
+          <div style={{ padding: '12px', background: 'rgba(255,255,255,0.1)', borderRadius: '16px' }}>
+            <Globe size={28} color="#2EC4B6" />
+          </div>
+          <div>
+            <h4 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Security Sandbox</h4>
+            <p style={{ fontSize: '0.85rem', opacity: 0.7 }}>Test SentinelX detection engines</p>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+          <button
+            onClick={async () => {
+              const { setLocation, setDevice, reportEventToSentinelX } = (window as any).bankUtils;
+              if (user.baseline_location && user.baseline_device) {
+                setLocation(user.baseline_location);
+                setDevice(user.baseline_device);
+                await reportEventToSentinelX('status_change', { description: `Session synced to account baseline: ${user.baseline_location}` });
+                alert(`Session Context Synced! Origin is now set to ${user.user_name || user.name}'s verified Home Baseline.`);
+              } else {
+                alert('No baseline data found for this account. Please re-login.');
+              }
+            }}
+            style={{
+              background: 'rgba(34, 197, 94, 0.15)',
+              border: '1px solid #22c55e',
+              color: '#22c55e',
+              padding: '16px',
+              borderRadius: '16px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '12px'
+            }}
+          >
+            <ShieldCheck size={18} />
+            Sync Session to Safe Baseline
+          </button>
+          
+          <button
+            onClick={async () => {
+              const { setLocation, reportEventToSentinelX } = (window as any).bankUtils;
+              setLocation('Moscow, RU');
+              await reportEventToSentinelX('status_change', { description: 'Location updated to Moscow, RU' });
+              alert('Location jumped to Moscow, RU! Now perform a transaction to trigger "Impossible Travel".');
+            }}
+            style={{
+              background: 'rgba(46, 196, 182, 0.2)',
+              border: '1px solid #2EC4B6',
+              color: '#2EC4B6',
+              padding: '16px',
+              borderRadius: '16px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '12px'
+            }}
+          >
+            <Zap size={18} />
+            Simulate Foreign Travel (Instinct Jump)
+          </button>
+          
+          <button
+            onClick={async () => {
+              if (!confirm('Are you sure you want to hard-reset security status? This will clear all risk scores and event history for this demo account.')) return;
+              try {
+                const accNo = user.accounts[0]?.accountNumber;
+                if (!accNo) return alert('Account number not found.');
+                
+                const response = await fetch(`http://localhost:8000/api/simulate/reset-account?account_number=${accNo}`, {
+                  method: 'POST'
+                });
+                if (response.ok) {
+                  alert('Security Status Hard-Reset Successful! Returning to "Safe" baseline.');
+                  window.location.reload();
+                }
+              } catch (err) {
+                console.error('Reset failed:', err);
+              }
+            }}
+            style={{
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              color: 'white',
+              padding: '16px',
+              borderRadius: '16px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '12px'
+            }}
+          >
+            <RefreshCcw size={18} />
+            Hard-Reset Security Status
+          </button>
+          
+          <button
+            onClick={() => navigate('/mailbox')}
+            style={{
+              background: 'rgba(3, 83, 164, 0.1)',
+              border: '1px solid #0353A4',
+              color: '#0353A4',
+              padding: '16px',
+              borderRadius: '16px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '12px',
+              gridColumn: 'span 2'
+            }}
+          >
+            <Mail size={18} />
+            Open SentinelX Alert Mailbox
+          </button>
+        </div>
+      </div>
+      
+      {isEditing && (
+        <div style={{ marginTop: '32px', display: 'flex', gap: '16px' }}>
+          <button className="btn btn-primary" onClick={onSave} style={{ padding: '12px 32px', borderRadius: '12px' }}>Save Info</button>
+          <button className="btn btn-outline" onClick={() => { setIsEditing(false); setProfileName(user.name); }} style={{ padding: '12px 32px', borderRadius: '12px' }}>Discard</button>
+        </div>
+      )}
+    </div>
+  </div>
+  );
+};
+
+// Main Dashboard Component
+export const Dashboard: React.FC = () => {
+  const { user, transactions, logout, performTransaction, deleteTransaction, updateUser, location, setLocation, device, setDevice, reportEventToSentinelX, setupTotp, verifyTotp } = useBank();
 
   // Expose for the simulation buttons inside child components without prop drilling
   (window as any).bankUtils = { setLocation, setDevice, reportEventToSentinelX };
@@ -242,6 +772,7 @@ export const Dashboard: React.FC = () => {
 
   // Success & Processing View States
   const [isProcessing, setIsProcessing] = useState(false);
+  const isProcessingRef = React.useRef(false);
   const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
   const [lastTransferDetails, setLastTransferDetails] = useState<{ amount: number, recipient: string } | null>(null);
 
@@ -278,6 +809,7 @@ export const Dashboard: React.FC = () => {
   }, [transactions, searchQuery]);
 
   const handleCheckBalance = (accountId: string) => {
+    console.log("Requesting reveal for:", accountId);
     if (revealedAccountIds.includes(accountId)) {
       setRevealedAccountIds(prev => prev.filter(id => id !== accountId));
     } else {
@@ -289,14 +821,24 @@ export const Dashboard: React.FC = () => {
 
   const startTransaction = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Recipient validation
+    const isDigits = /^\d+$/.test(recipient);
+    if (isDigits && recipient.length !== 10) {
+      alert("Please enter a valid 10-digit mobile number or a recipient name.");
+      return;
+    }
+
     setPinPurpose('transaction');
     setShowPinModal(true);
   };
 
   const finalizeTransfer = async () => {
+    if (isProcessingRef.current) return;
     const val = parseFloat(amount);
     if (!val || val <= 0) return;
 
+    isProcessingRef.current = true;
     setShowPinModal(false);
     setShowTransferModal(false);
     setIsProcessing(true);
@@ -319,25 +861,34 @@ export const Dashboard: React.FC = () => {
           origin: { y: 0.5 },
           colors: ['#2EC4B6', '#FF9F1C', '#0353A4']
         });
+        isProcessingRef.current = false;
       }, 2500);
 
     } catch (err: any) {
+      isProcessingRef.current = false;
       setIsProcessing(false);
       alert(err.message);
     }
   };
 
   const handlePinSuccess = () => {
-    if (pinPurpose === 'balance') {
-      if (checkingAccountId) {
-        setRevealedAccountIds(prev => [...prev, checkingAccountId]);
-      }
-      setShowPinModal(false);
-      setCheckingAccountId(null);
-    } else if (pinPurpose === 'transaction') {
-      finalizeTransfer();
-    }
+    console.log("PIN VERIFIED. Purpose:", pinPurpose, "Target ID:", checkingAccountId);
+    
+    setShowPinModal(false);
+    const purpose = pinPurpose;
+    const targetAccountId = checkingAccountId;
+    
     setPinPurpose(null);
+    setCheckingAccountId(null);
+
+    if ((purpose as string) === 'transaction') {
+      finalizeTransfer();
+    } else if ((purpose as string) === 'balance' && targetAccountId) {
+      setRevealedAccountIds(prev => {
+        if (prev.includes(targetAccountId)) return prev;
+        return [...prev, targetAccountId];
+      });
+    }
   };
 
   const handleUpdateProfile = () => {
@@ -571,7 +1122,7 @@ export const Dashboard: React.FC = () => {
               activeTab !== 'overview' && (
                 <motion.div key={activeTab} initial={{ opacity: 0, x: 15 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -15 }}>
                   {activeTab === 'accounts' && <AccountsView user={user} revealedAccountIds={revealedAccountIds} onSend={() => setShowTransferModal(true)} onCheckBalance={handleCheckBalance} />}
-                  {activeTab === 'transactions' && <TransactionsView transactions={filteredTransactions} />}
+                  {activeTab === 'transactions' && <TransactionsView transactions={filteredTransactions} onDelete={deleteTransaction} />}
                   {activeTab === 'profile' && <ProfileView user={user} isEditing={isEditingProfile} setIsEditing={setIsEditingProfile} profileName={profileName} setProfileName={setProfileName} location={location} setLocation={setLocation} device={device} setDevice={setDevice} onSave={handleUpdateProfile} setupTotp={setupTotp} verifyTotp={verifyTotp} />}
                 </motion.div>
               )
@@ -583,32 +1134,84 @@ export const Dashboard: React.FC = () => {
       {/* PIN Modal */}
       < PinModal isOpen={showPinModal} onClose={() => { setShowPinModal(false); setPinPurpose(null); }} onSuccess={handlePinSuccess} title={pinPurpose === 'balance' ? 'Enter PIN for Balance' : 'Enter PIN for Secure Pay'} />
 
-      {/* Transfer Modal */}
+      {/* Transfer Modal - Real Bank Premium Design */}
       <AnimatePresence>
         {showTransferModal && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '20px' }}>
-            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} style={{ background: 'white', padding: '32px', borderRadius: '24px', width: '100%', maxWidth: '440px', boxShadow: 'var(--shadow-lg)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <h3 style={{ fontSize: '1.4rem', fontWeight: 800 }}>Secure Payment</h3>
-                <button onClick={() => setShowTransferModal(false)} className="btn btn-outline" style={{ padding: '6px', borderRadius: '50%' }}><X size={20} /></button>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+            <motion.div 
+              initial={{ y: 100, opacity: 0 }} 
+              animate={{ y: 0, opacity: 1 }} 
+              exit={{ y: 100, opacity: 0 }} 
+              style={{ background: '#f8fafc', padding: '0', borderRadius: '32px', width: '100%', maxWidth: '420px', overflow: 'hidden', boxShadow: '0 40px 100px rgba(0,0,0,0.4)' }}
+            >
+              <div style={{ background: 'white', padding: '24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ fontSize: '1.2rem', fontWeight: 900, color: '#101828' }}>Send Money</h3>
+                <button onClick={() => setShowTransferModal(false)} style={{ color: '#94a3b8' }}><X size={24} /></button>
               </div>
-              <form onSubmit={startTransaction}>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, marginBottom: '6px', color: '#94a3b8', letterSpacing: '0.1em' }}>SOURCE ACCOUNT</label>
-                  <select className="form-input" value={selectedAcc} onChange={(e) => setSelectedAcc(e.target.value)} style={{ fontWeight: 700, fontSize: '0.95rem' }}>
-                    {user.accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name} (₹{acc.balance.toLocaleString()})</option>)}
-                  </select>
-                </div>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, marginBottom: '6px', color: '#94a3b8', letterSpacing: '0.1em' }}>RECIPIENT INFO</label>
-                  <input type="text" className="form-input" value={recipient} onChange={e => setRecipient(e.target.value)} required placeholder="Name or Account ID" style={{ fontWeight: 700, fontSize: '0.95rem' }} />
-                </div>
-                <div style={{ marginBottom: '32px' }}>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 800, marginBottom: '6px', color: '#94a3b8', letterSpacing: '0.1em' }}>AMOUNT (INR)</label>
-                  <input type="number" className="form-input" style={{ fontSize: '2rem', fontWeight: 900, textAlign: 'center', color: '#0353A4', border: 'none', borderBottom: '2px solid #f1f5f9', borderRadius: 0 }} value={amount} onChange={e => setAmount(e.target.value)} required placeholder="0" />
-                </div>
-                <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '16px', fontSize: '1.1rem', borderRadius: '12px', fontWeight: 800 }}>Authorize Payment</button>
-              </form>
+
+              <div style={{ padding: '32px' }}>
+                <form onSubmit={startTransaction}>
+                  <div style={{ background: 'white', borderRadius: '24px', padding: '24px', marginBottom: '24px', border: '1px solid #f1f5f9' }}>
+                    <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 900, color: '#94a3b8', letterSpacing: '0.1em', marginBottom: '16px', textTransform: 'uppercase' }}>From Account</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <div style={{ width: '48px', height: '48px', background: '#0353A4', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                        <Building2 size={24} />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <select 
+                          value={selectedAcc} 
+                          onChange={(e) => setSelectedAcc(e.target.value)} 
+                          style={{ width: '100%', border: 'none', background: 'none', fontSize: '1rem', fontWeight: 800, color: '#101828', outline: 'none', padding: 0 }}
+                        >
+                          {user.accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name} (••••{acc.accountNumber.slice(-4)})</option>)}
+                        </select>
+                        <p style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Balance: ₹{user.accounts.find(a => a.id === (selectedAcc || user.accounts[0].id))?.balance.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'white', borderRadius: '24px', padding: '24px', marginBottom: '24px', border: '1px solid #f1f5f9' }}>
+                    <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 900, color: '#94a3b8', letterSpacing: '0.1em', marginBottom: '16px', textTransform: 'uppercase' }}>To Recipient</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <div style={{ width: '48px', height: '48px', background: '#f1f5f9', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0353A4' }}>
+                        <UserRound size={24} />
+                      </div>
+                      <input 
+                        type="text" 
+                        value={recipient} 
+                        onChange={e => setRecipient(e.target.value)} 
+                        required 
+                        placeholder="Mobile number or name" 
+                        style={{ flex: 1, border: 'none', background: 'none', fontSize: '1rem', fontWeight: 800, color: '#101828', outline: 'none' }} 
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+                    <label style={{ display: 'block', fontSize: '0.65rem', fontWeight: 900, color: '#94a3b8', letterSpacing: '0.1em', marginBottom: '8px', textTransform: 'uppercase' }}>Amount to send</label>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '2rem', fontWeight: 900, color: '#101828' }}>₹</span>
+                      <input 
+                        type="number" 
+                        value={amount} 
+                        onChange={e => setAmount(e.target.value)} 
+                        required 
+                        placeholder="0.00" 
+                        style={{ width: '180px', border: 'none', background: 'none', fontSize: '3rem', fontWeight: 900, color: '#0353A4', outline: 'none', textAlign: 'left' }} 
+                      />
+                    </div>
+                  </div>
+
+                  <motion.button 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    type="submit" 
+                    style={{ width: '100%', padding: '20px', fontSize: '1.1rem', borderRadius: '20px', fontWeight: 900, background: '#101828', color: 'white', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}
+                  >
+                    Confirm & Send <ArrowUpRight size={20} />
+                  </motion.button>
+                </form>
+              </div>
             </motion.div>
           </div>
         )}
@@ -700,376 +1303,7 @@ export const Dashboard: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
-    </div >
-  );
-};
-
-// Refined Accounts View
-const AccountsView = ({ user, revealedAccountIds, onSend, onCheckBalance }: any) => (
-  <div className="tab-pane">
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-      <h2 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Account Assets</h2>
-      <button className="btn btn-primary" style={{ padding: '10px 20px', borderRadius: '12px', fontSize: '0.9rem' }} onClick={onSend}><Plus size={18} /> New Account</button>
     </div>
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '24px' }}>
-      {user.accounts.map((acc: any) => {
-        const isRevealed = revealedAccountIds.includes(acc.id);
-        return (
-          <motion.div key={acc.id} whileHover={{ y: -5 }} style={{ background: 'white', padding: '32px', borderRadius: '20px', border: '1px solid #e2e8f0', boxShadow: 'var(--shadow-sm)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '24px', paddingBottom: '20px', borderBottom: '1px solid #f1f5f9' }}>
-              <div style={{ background: '#f1f5f9', padding: '12px', borderRadius: '14px', color: '#0353A4' }}>
-                <Wallet size={32} />
-              </div>
-              <div>
-                <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#101828' }}>{acc.name}</h3>
-                <p style={{ color: '#64748b', fontWeight: 600, fontSize: '1rem' }}>{acc.accountNumber}</p>
-              </div>
-            </div>
-            <p style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 800, letterSpacing: '0.1em' }}>LEDGER BALANCE</p>
-            <h2 style={{ fontSize: '2.5rem', margin: '12px 0', color: '#101828', fontWeight: 800 }}>
-              {isRevealed ? `₹${acc.balance.toLocaleString('en-IN')}` : '••••••••'}
-            </h2>
-            <div style={{ marginTop: '32px', display: 'flex', gap: '12px' }}>
-              <button className="btn btn-primary" style={{ flex: 1, padding: '12px', fontSize: '0.95rem', borderRadius: '12px' }} onClick={onSend}>Send</button>
-              <button className="btn btn-outline" style={{ flex: 1, padding: '12px', fontSize: '0.95rem', color: '#0353A4', borderColor: '#0353A4', borderRadius: '12px' }} onClick={() => onCheckBalance(acc.id)}>
-                {isRevealed ? <EyeOff size={18} /> : <Eye size={18} />} Check
-              </button>
-            </div>
-          </motion.div>
-        );
-      })}
-    </div>
-  </div>
-);
-
-const TransactionsView = ({ transactions }: any) => (
-  <div className="tab-pane">
-    <h2 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '24px' }}>Archive</h2>
-    <div style={{ background: 'white', borderRadius: '20px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
-      <div style={{ overflowX: 'auto' }}>
-        <table className="data-table">
-          <thead>
-            <tr style={{ height: '60px', background: '#f8fafc' }}>
-              <th style={{ paddingLeft: '24px' }}>TYPE</th>
-              <th>DESCRIPTION</th>
-              <th>DATE</th>
-              <th>CATEGORY</th>
-              <th style={{ textAlign: 'right', paddingRight: '24px' }}>AMOUNT</th>
-            </tr>
-          </thead>
-          <tbody>
-            {transactions.map((t: any, idx: number) => (
-              <motion.tr key={t.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: idx * 0.02 }} style={{ height: '72px' }}>
-                <td style={{ paddingLeft: '24px' }}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: t.type === 'deposit' ? '#ecfdf5' : '#fef2f2', color: t.type === 'deposit' ? '#10b981' : '#ef4444' }}>
-                    {t.type === 'deposit' ? <ArrowDownLeft size={20} /> : <ArrowUpRight size={20} />}
-                  </div>
-                </td>
-                <td><p style={{ fontWeight: 800, fontSize: '1rem', color: '#101828' }}>{t.description}</p></td>
-                <td style={{ color: '#64748b', fontWeight: 500, fontSize: '0.9rem' }}>{new Date(t.date).toLocaleDateString()}</td>
-                <td><span style={{ textTransform: 'uppercase', fontSize: '0.75rem', background: '#f1f5f9', padding: '6px 12px', borderRadius: '8px', color: '#475467', fontWeight: 800 }}>{t.category}</span></td>
-                <td style={{ textAlign: 'right', fontWeight: 800, fontSize: '1.1rem', color: t.type === 'deposit' ? '#10b981' : '#101828', paddingRight: '24px' }}>
-                  {t.type === 'deposit' ? '+' : '-'} ₹{t.amount.toLocaleString('en-IN')}
-                </td>
-              </motion.tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-);
-
-const ProfileView = ({ user, isEditing, setIsEditing, profileName, setProfileName, location, setLocation, device, setDevice, onSave, setupTotp, verifyTotp }: any) => {
-  const [totpSetupData, setTotpSetupData] = useState<{secret: string, qr_code_base64: string} | null>(null);
-  const [verifyCode, setVerifyCode] = useState('');
-  const [totpError, setTotpError] = useState('');
-  const [totpSuccess, setTotpSuccess] = useState('');
-  const navigate = useNavigate();
-  
-  const handleSetupTotp = async () => {
-    setTotpError('');
-    const data = await setupTotp(user.id);
-    if (data) {
-      setTotpSetupData(data);
-    } else {
-      setTotpError('Failed to initialize matching sequence.');
-    }
-  };
-
-  const handleVerifyTotp = async () => {
-    setTotpError('');
-    setTotpSuccess('');
-    const success = await verifyTotp(user.id, verifyCode);
-    if (success) {
-      setTotpSuccess('Authenticator App successfully linked!');
-      setTotpSetupData(null);
-    } else {
-      setTotpError('Invalid code. Please try again.');
-    }
-  };
-
-  return (
-  <div className="tab-pane">
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-      <h2 style={{ fontSize: '1.75rem', fontWeight: 800 }}>Profile Core</h2>
-      {!isEditing && <button className="btn btn-outline" style={{ borderRadius: '12px', padding: '8px 16px', fontSize: '0.85rem' }} onClick={() => setIsEditing(true)}><Edit2 size={16} /> Edit Info</button>}
-    </div>
-    <div style={{ background: 'white', padding: '32px', borderRadius: '24px', border: '1px solid #e2e8f0', boxShadow: 'var(--shadow-md)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '32px', marginBottom: '48px' }}>
-        <div style={{ width: '110px', height: '110px', borderRadius: '50%', background: 'linear-gradient(135deg, #0353A4, #2EC4B6)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.8rem', fontWeight: 900, boxShadow: 'var(--shadow-md)', border: '4px solid white' }}>{profileName.charAt(0)}</div>
-        <div style={{ flex: 1 }}>
-          {isEditing ? (
-            <input type="text" className="form-input" style={{ fontSize: '2.5rem', fontWeight: 900, marginBottom: '8px', border: 'none', borderBottom: '3px solid #0353A4', borderRadius: 0, paddingLeft: 0, height: '70px', width: '100%' }} value={profileName} onChange={e => setProfileName(e.target.value)} />
-          ) : (
-            <h3 style={{ fontSize: '2.75rem', fontWeight: 900, color: '#101828', letterSpacing: '-0.02em', marginBottom: '4px' }}>{user.name}</h3>
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#2EC4B6' }}>
-            <Sparkles size={20} />
-            <p style={{ fontWeight: 800, fontSize: '1.1rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Diamond Premier Member</p>
-          </div>
-        </div>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '32px' }}>
-        <ProfileBox icon={<Mail size={22} color="#0353A4" />} label="Official Contact" val={user.email} />
-        <ProfileBox icon={<CreditCard size={22} color="#0353A4" />} label="Primary Account" val={user.accounts[0]?.accountNumber || 'N/A'} />
-        <ProfileBox icon={<Building2 size={22} color="#0353A4" />} label="Home Branch" val="Novus Global HQ" />
-        <ProfileBox icon={<History size={22} color="#0353A4" />} label="Member Since" val="2021" />
-      </div>
-
-      <div style={{ marginTop: '48px', borderTop: '1px solid #f1f5f9', paddingTop: '32px' }}>
-        <h4 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '20px', color: '#0353A4' }}>Session Context</h4>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '32px' }}>
-          <div style={{ background: '#f8fafc', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b', marginBottom: '10px' }}>
-              <Globe size={18} />
-              <span style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase' }}>Current Location</span>
-            </div>
-            {isEditing ? (
-              <input 
-                type="text" 
-                className="form-input" 
-                value={location} 
-                onChange={(e) => setLocation(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px' }}
-              />
-            ) : (
-              <p style={{ fontSize: '1.1rem', fontWeight: 800, color: '#101828' }}>{location}</p>
-            )}
-            <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '8px' }}>Syncing with SentinelX node...</p>
-          </div>
-
-          <div style={{ background: '#f8fafc', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#64748b', marginBottom: '10px' }}>
-              <Sparkles size={18} />
-              <span style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase' }}>Current Device</span>
-            </div>
-            {isEditing ? (
-              <input 
-                type="text" 
-                className="form-input" 
-                value={device} 
-                onChange={(e) => setDevice(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px' }}
-              />
-            ) : (
-              <p style={{ fontSize: '1.1rem', fontWeight: 800, color: '#101828' }}>{device}</p>
-            )}
-            <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '8px' }}>Institutional-grade encryption active.</p>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ marginTop: '48px', padding: '32px', borderRadius: '24px', background: 'white', border: '1px solid #e2e8f0', boxShadow: 'var(--shadow-md)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
-          <div style={{ padding: '12px', background: '#f8fafc', borderRadius: '16px', color: '#0353A4' }}>
-            <ShieldCheck size={28} />
-          </div>
-          <div>
-            <h4 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Two-Factor Authentication (TOTP)</h4>
-            <p style={{ fontSize: '0.9rem', color: '#64748b' }}>Protect your account with an Authenticator App (Google Authenticator, Authy, etc.).</p>
-          </div>
-        </div>
-
-        {!totpSetupData ? (
-          <button 
-            onClick={handleSetupTotp}
-            style={{ padding: '12px 24px', background: '#0353A4', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-          >
-            <Key size={18} />
-            Set Up Authenticator App
-          </button>
-        ) : (
-          <div style={{ background: '#f8fafc', padding: '24px', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>
-            <h5 style={{ fontWeight: 800, marginBottom: '16px', color: '#101828' }}>1. Scan this QR Code with your Authenticator App</h5>
-            <div style={{ background: 'white', padding: '16px', display: 'inline-block', borderRadius: '12px', marginBottom: '8px', boxShadow: 'var(--shadow-sm)' }}>
-              <img src={`data:image/png;base64,${totpSetupData.qr_code_base64}`} alt="TOTP QR Code" style={{ width: '200px', height: '200px' }} />
-            </div>
-            
-            <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '16px' }}>
-              Can't scan? Use this setup key: <br/>
-              <code style={{ background: '#e2e8f0', padding: '4px 8px', borderRadius: '6px', fontWeight: 800, fontSize: '0.9rem', color: '#0353A4', letterSpacing: '0.1em' }}>{totpSetupData.secret}</code>
-            </p>
-            
-            <h5 style={{ fontWeight: 800, marginBottom: '8px', color: '#101828', marginTop: '16px' }}>2. Enter the 6-digit code</h5>
-            <div style={{ display: 'flex', gap: '12px', maxWidth: '300px' }}>
-              <input 
-                type="text" 
-                className="form-input" 
-                placeholder="000000" 
-                maxLength={6}
-                value={verifyCode}
-                onChange={e => setVerifyCode(e.target.value.replace(/\D/g, ''))}
-                style={{ textAlign: 'center', fontSize: '1.25rem', letterSpacing: '0.2em', fontWeight: 'bold' }} 
-              />
-              <button 
-                onClick={handleVerifyTotp}
-                style={{ padding: '0 24px', background: '#2EC4B6', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 800, cursor: 'pointer' }}
-              >
-                Verify
-              </button>
-            </div>
-          </div>
-        )}
-
-        {totpError && <p style={{ color: '#ef4444', marginTop: '16px', fontWeight: 600, fontSize: '0.9rem' }}>{totpError}</p>}
-        {totpSuccess && <p style={{ color: '#10b981', marginTop: '16px', fontWeight: 600, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}><CheckCircle2 size={18} /> {totpSuccess}</p>}
-      </div>
-
-      <div style={{ marginTop: '48px', padding: '32px', borderRadius: '24px', background: 'linear-gradient(135deg, #0353A4 0%, #001233 100%)', color: 'white', border: '1px solid rgba(255,255,255,0.1)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '24px' }}>
-          <div style={{ padding: '12px', background: 'rgba(255,255,255,0.1)', borderRadius: '16px' }}>
-            <Globe size={28} color="#2EC4B6" />
-          </div>
-          <div>
-            <h4 style={{ fontSize: '1.25rem', fontWeight: 800 }}>Security Sandbox</h4>
-            <p style={{ fontSize: '0.85rem', opacity: 0.7 }}>Test SentinelX detection engines</p>
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-          <button
-            onClick={async () => {
-              const { setLocation, setDevice, reportEventToSentinelX } = (window as any).bankUtils;
-              if (user.baseline_location && user.baseline_device) {
-                setLocation(user.baseline_location);
-                setDevice(user.baseline_device);
-                await reportEventToSentinelX('status_change', { description: `Session synced to account baseline: ${user.baseline_location}` });
-                alert(`Session Context Synced! Origin is now set to ${user.user_name || user.name}'s verified Home Baseline.`);
-              } else {
-                alert('No baseline data found for this account. Please re-login.');
-              }
-            }}
-            style={{
-              background: 'rgba(34, 197, 94, 0.15)',
-              border: '1px solid #22c55e',
-              color: '#22c55e',
-              padding: '16px',
-              borderRadius: '16px',
-              fontWeight: 800,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '12px'
-            }}
-          >
-            <ShieldCheck size={18} />
-            Sync Session to Safe Baseline
-          </button>
-          
-          <button
-            onClick={async () => {
-              const { setLocation, reportEventToSentinelX } = (window as any).bankUtils;
-              setLocation('Moscow, RU');
-              await reportEventToSentinelX('status_change', { description: 'Location updated to Moscow, RU' });
-              alert('Location jumped to Moscow, RU! Now perform a transaction to trigger "Impossible Travel".');
-            }}
-            style={{
-              background: 'rgba(46, 196, 182, 0.2)',
-              border: '1px solid #2EC4B6',
-              color: '#2EC4B6',
-              padding: '16px',
-              borderRadius: '16px',
-              fontWeight: 800,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '12px'
-            }}
-          >
-            <Zap size={18} />
-            Simulate Foreign Travel (Instinct Jump)
-          </button>
-          
-          <button
-            onClick={async () => {
-              if (!confirm('Are you sure you want to hard-reset security status? This will clear all risk scores and event history for this demo account.')) return;
-              try {
-                const accNo = user.accounts[0]?.accountNumber;
-                if (!accNo) return alert('Account number not found.');
-                
-                const response = await fetch(`http://localhost:8000/api/simulate/reset-account?account_number=${accNo}`, {
-                  method: 'POST'
-                });
-                if (response.ok) {
-                  alert('Security Status Hard-Reset Successful! Returning to "Safe" baseline.');
-                  window.location.reload();
-                }
-              } catch (err) {
-                console.error('Reset failed:', err);
-              }
-            }}
-            style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              color: 'white',
-              padding: '16px',
-              borderRadius: '16px',
-              fontWeight: 800,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '12px'
-            }}
-          >
-            <RefreshCcw size={18} />
-            Hard-Reset Security Status
-          </button>
-          
-          <button
-            onClick={() => navigate('/mailbox')}
-            style={{
-              background: 'rgba(3, 83, 164, 0.1)',
-              border: '1px solid #0353A4',
-              color: '#0353A4',
-              padding: '16px',
-              borderRadius: '16px',
-              fontWeight: 800,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '12px',
-              gridColumn: 'span 2'
-            }}
-          >
-            <Mail size={18} />
-            Open SentinelX Alert Mailbox
-          </button>
-        </div>
-      </div>
-      
-      {isEditing && (
-        <div style={{ marginTop: '32px', display: 'flex', gap: '16px' }}>
-          <button className="btn btn-primary" onClick={onSave} style={{ padding: '12px 32px', borderRadius: '12px' }}>Save Info</button>
-          <button className="btn btn-outline" onClick={() => { setIsEditing(false); setProfileName(user.name); }} style={{ padding: '12px 32px', borderRadius: '12px' }}>Discard</button>
-        </div>
-      )}
-    </div>
-  </div>
   );
 };
 

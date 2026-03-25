@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useBank } from '../context/BankContext';
-import { motion } from 'framer-motion';
-import { Mail, Lock, User as UserIcon, Building2, ChevronRight, PieChart, ShieldCheck, Eye, EyeOff, Smartphone, MapPin, Key } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Mail, Lock, User as UserIcon, Building2, ChevronRight, PieChart, ShieldCheck, Eye, EyeOff, Key } from 'lucide-react';
 import MockMailbox from './MockMailbox';
 
 export const Auth: React.FC = () => {
-  const { login, loginTotp, signup, reportEventToSentinelX, setDevice, setLocation, device, location } = useBank();
+  const { login, loginTotp, signup, reportEventToSentinelX } = useBank();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
@@ -15,7 +15,6 @@ export const Auth: React.FC = () => {
   const [failedAttempts, setFailedAttempts] = useState(0);
   
   // MFA States
-  const [isMfaPending, setIsMfaPending] = useState(false);
   const [showMailbox, setShowMailbox] = useState(false);
   const [isTotpPending, setIsTotpPending] = useState(false);
   const [totpCode, setTotpCode] = useState('');
@@ -23,7 +22,6 @@ export const Auth: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setIsMfaPending(false);
 
     if (isLogin) {
       if (isTotpPending) {
@@ -49,23 +47,17 @@ export const Auth: React.FC = () => {
             return;
         }
 
-        if (errorMsg.includes("MFA Required") || errorMsg.includes("check your email")) {
-          // Trigger MFA Flow
-          setIsMfaPending(true);
-          setError("New device detected. Please check your email inbox to authorize this login.");
-        } else {
-          // Standard failures
-          const newCount = failedAttempts + 1;
-          setFailedAttempts(newCount);
-          setError(errorMsg);
+        // Standard failures
+        const newCount = failedAttempts + 1;
+        setFailedAttempts(newCount);
+        setError(errorMsg);
 
-          // Report failure to SentinelX
-          await reportEventToSentinelX('login_failed', {
-            attempt_number: newCount,
-            is_potential_brute_force: newCount >= 3,
-            email_attempted: email
-          });
-        }
+        // Report failure to SentinelX
+        await reportEventToSentinelX('login_failed', {
+          attempt_number: newCount,
+          is_potential_brute_force: newCount >= 3,
+          email_attempted: email
+        });
       }
     } else {
       try {
@@ -126,9 +118,9 @@ export const Auth: React.FC = () => {
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 style={{ 
-                  background: isMfaPending ? '#EFF6FF' : '#FEF2F2', 
-                  border: isMfaPending ? '1px solid #BFDBFE' : '1px solid #FCA5A5', 
-                  color: isMfaPending ? '#1E40AF' : '#B91C1C', 
+                  background: '#FEF2F2', 
+                  border: '1px solid #FCA5A5', 
+                  color: '#B91C1C', 
                   padding: '16px', 
                   borderRadius: '8px', 
                   marginTop: '16px', 
@@ -140,70 +132,10 @@ export const Auth: React.FC = () => {
                 }}
               >
                 <div>{error}</div>
-                {isMfaPending && (
-                  <button 
-                    type="button"
-                    onClick={(e) => { e.preventDefault(); setShowMailbox(true); }}
-                    style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '8px', 
-                      background: '#0353A4', 
-                      color: 'white', 
-                      padding: '8px 16px', 
-                      borderRadius: '6px', 
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontWeight: 600,
-                      marginTop: '4px'
-                    }}
-                  >
-                    <Mail size={16} /> Open Mailbox
-                  </button>
-                )}
               </motion.div>
             )}
           </div>
-
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            
-            {/* Device and Location Simulators (For SentinelX Demo) */}
-            {isLogin && !isTotpPending && (
-              <div style={{ display: 'flex', gap: '16px', padding: '16px', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '4px', textTransform: 'uppercase' }}>Login Device</label>
-                  <div style={{ position: 'relative' }}>
-                    <Smartphone style={{ position: 'absolute', left: '10px', top: '10px' }} size={14} color="#94a3b8" />
-                    <select
-                      value={device}
-                      onChange={e => setDevice(e.target.value)}
-                      style={{ width: '100%', padding: '8px 8px 8px 32px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '0.875rem', background: 'white' }}
-                    >
-                      <option value="Windows / Chrome">Windows PC (Safe)</option>
-                      <option value="iPhone 15 / Safari">iPhone 15</option>
-                      <option value="MacBook Pro / Safari">MacBook Pro</option>
-                      <option value="Linux Unknown / Curl">Unknown Script</option>
-                    </select>
-                  </div>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '4px', textTransform: 'uppercase' }}>Location</label>
-                  <div style={{ position: 'relative' }}>
-                    <MapPin style={{ position: 'absolute', left: '10px', top: '10px' }} size={14} color="#94a3b8" />
-                    <select
-                      value={location}
-                      onChange={e => setLocation(e.target.value)}
-                      style={{ width: '100%', padding: '8px 8px 8px 32px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '0.875rem', background: 'white' }}
-                    >
-                      <option value="Hyderabad">Hyderabad (Safe)</option>
-                      <option value="San Francisco, CA">San Francisco, CA</option>
-                      <option value="London, UK">London, UK</option>
-                      <option value="Moscow, RU">Moscow, RU</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {isTotpPending ? (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
@@ -297,7 +229,7 @@ export const Auth: React.FC = () => {
                 </>
             )}
 
-            <button type="submit" disabled={isMfaPending} className={`btn btn-primary`} style={{ width: '100%', padding: '14px', fontSize: '1rem', opacity: isMfaPending ? 0.7 : 1, cursor: isMfaPending ? 'not-allowed' : 'pointer' }}>
+            <button type="submit" className={`btn btn-primary`} style={{ width: '100%', padding: '14px', fontSize: '1rem', cursor: 'pointer' }}>
               {isTotpPending ? 'Verify Code' : isLogin ? 'Sign In' : 'Create Account'} <ChevronRight size={18} />
             </button>
           </form>

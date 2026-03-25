@@ -28,11 +28,11 @@ def calculate_baseline_deviation(account: Account, event_data: dict) -> float:
     return risk_score
 
 def get_risk_level(score: float) -> str:
-    if score <= 120: # Increased from 90 to allow for baseline "noise"
+    if score <= 100: # Lowered from 120 for earlier warnings
         return "Safe"
-    elif score <= 180:
+    elif score <= 160:
         return "Medium"
-    elif score <= 240:
+    elif score <= 220:
         return "High"
     else:
         return "Critical"
@@ -43,14 +43,17 @@ def evaluate_risk(account: Account, event_data: dict, attack_contributions: floa
     # ML contribution to risk score
     ml_contribution = 0.0
     if ml_fraud_score > 0.9:
-        ml_contribution = 70.0
+        ml_contribution = 80.0
     elif ml_fraud_score > 0.7:
-        ml_contribution = 40.0
+        ml_contribution = 50.0
     elif ml_fraud_score > 0.5:
-        ml_contribution = 20.0
+        ml_contribution = 30.0
     
-    # Total = Initial Reputation (85) + Baseline + Attack + ML
-    total_score = min(300.0, account.reputation_score + baseline_score + attack_contributions + ml_contribution)
+    # Use dynamic base: 85.0 if DB has 0 (new account), otherwise use DB score
+    current_reputation = account.reputation_score if (account.reputation_score and account.reputation_score > 0.1) else 85.0
+    
+    # Total = Base Reputation + Baseline + Attack + ML
+    total_score = min(300.0, current_reputation + baseline_score + attack_contributions + ml_contribution)
     
     return {
         "new_risk_score": total_score,

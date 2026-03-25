@@ -111,7 +111,8 @@ const Accounts = () => {
                                     <td className="px-6 py-5">
                                         <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-[0.2em] border ${session.status === 'Active' ? 'bg-cyber-primary/10 text-cyber-primary border-cyber-primary/20' :
                                             session.status === 'Locked' ? 'bg-rose-500/10 text-rose-500 border-rose-500/20' :
-                                                'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                                            session.status === 'Monitoring' ? 'bg-amber-400/10 text-amber-500 border-amber-400/20' :
+                                                'bg-blue-500/10 text-blue-400 border-blue-500/20'
                                             }`}>
                                             {session.status}
                                         </span>

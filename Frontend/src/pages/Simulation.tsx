@@ -12,6 +12,7 @@ import {
     Zap,
     User,
     ChevronDown,
+    RotateCcw,
 } from 'lucide-react';
 
 const Simulation = () => {
@@ -73,6 +74,20 @@ const Simulation = () => {
             icon: ShieldX,
             color: 'rose',
             desc: 'Simulate direct manipulation of account balances by unauthorized background workers.'
+        },
+        {
+            id: 'fingerprint',
+            label: 'Browser Fingerprint Mismatch',
+            icon: Zap,
+            color: 'cyan',
+            desc: 'Trigger a security alert by logging in from a device with a known-suspicious browser configuration.'
+        },
+        {
+            id: 'reset',
+            label: 'System Hard-Reset',
+            icon: RotateCcw,
+            color: 'emerald',
+            desc: 'Wipe all behavioral events and reset the account to its original secure baseline for demonstration.'
         }
     ];
 

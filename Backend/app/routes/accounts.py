@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 
 from ..database.db import get_db
 from ..database import models
@@ -21,6 +21,8 @@ class LoginRequest(BaseModel):
     password: str
     device: str = "Unknown"
     location: str = "Unknown"
+    user_agent: Optional[str] = None
+    fingerprint: Optional[str] = None
 
 class TOTPLoginRequest(BaseModel):
     email: str
@@ -65,85 +67,28 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
             "message": "Authenticator code required."
         }
     
-    # 2. Basic MFA (Device Check via Email)
-    if account.baseline_primary_device and request.device != account.baseline_primary_device:
-        # Generate token and request
-        auth_token = str(uuid.uuid4())
-        
-        # Invalidate old pending requests for this account
-        db.query(models.DeviceAuthRequest).filter(
-            models.DeviceAuthRequest.account_id == account.id,
-            models.DeviceAuthRequest.status == "pending"
-        ).delete()
-        
-        auth_request = models.DeviceAuthRequest(
-            account_id=account.id,
-            device=request.device,
-            location=request.location,
-            token=auth_token,
-            expires_at=datetime.utcnow() + timedelta(minutes=15)
-        )
-        db.add(auth_request)
-        
-        # Create Mock Email
-        import json
-        approve_payload_str = json.dumps({"account_id": account.id, "token": auth_token}).replace('"', '&quot;')
-        
-        deny_action_js = f"""
-            const newPassword = prompt('To secure your account, please enter a new password:');
-            if (newPassword) {{
-                window.handleMfaAction('http://localhost:8000/api/accounts/secure-account', {{ 'account_id': {account.id}, 'token': '{auth_token}', 'new_password': newPassword }});
-            }}
-        """.replace(chr(10), '').replace('"', '&quot;')
-        
-        html_content = f"""
-        <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
-            <div style="background-color: #0353A4; padding: 20px; text-align: center;">
-                <h2 style="color: white; margin: 0;">SentinelX Security Alert</h2>
-            </div>
-            <div style="padding: 30px;">
-                <p>Hello <strong>{account.holder_name}</strong>,</p>
-                <p>We detected a new login attempt to your Novus Bank account from an unrecognized device.</p>
-                
-                <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e2e8f0;">
-                    <p style="margin: 5px 0; color: #64748b; font-size: 0.9em; text-transform: uppercase;">Device</p>
-                    <p style="margin: 0 0 15px 0; font-weight: bold; font-size: 1.1em;">{request.device}</p>
-                    
-                    <p style="margin: 5px 0; color: #64748b; font-size: 0.9em; text-transform: uppercase;">Location</p>
-                    <p style="margin: 0; font-weight: bold; font-size: 1.1em;">{request.location}</p>
-                </div>
-                
-                <h3 style="margin-top: 30px;">Is this you?</h3>
-                <p>If you initiated this login, please authorize the device below to proceed.</p>
-                
-                <div style="margin-top: 20px; display: flex; gap: 15px;">
-                    <button onclick="window.handleMfaAction('http://localhost:8000/api/accounts/acknowledge-login', {approve_payload_str})" style="background-color: #10b981; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
-                        Yes, it was me
-                    </button>
-                    <button onclick="{deny_action_js}" style="background-color: #ef4444; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
-                        No, secure account
-                    </button>
-                </div>
-            </div>
-            <div style="background-color: #f1f5f9; padding: 15px; text-align: center; font-size: 0.8em; color: #64748b;">
-                This is an automated security message from Novus Bank.
-            </div>
-        </div>
-        """
-        
-        mock_email = models.MockEmail(
-            to_email=account.email,
-            subject="Security Alert: Authorization Required for New Device",
-            html_content=html_content
-        )
-        db.add(mock_email)
-        db.commit()
-        
-        return {
-            "status": "mfa_required",
-            "message": "We detected a login from a new device. Please check your email to authorize this login.",
-            "auth_token_hint": auth_token # Just for debugging locally if needed
+    # MFA checks disabled for this session
+    
+    return {
+        "status": "success",
+        "user": {
+            "id": account.id,
+            "name": account.holder_name,
+            "email": account.email,
+            "account_number": account.account_number,
+            "baseline_location": account.baseline_primary_location,
+            "baseline_device": account.baseline_primary_device,
+            "age": account.age,
+            "gender": account.gender,
+            "address": account.address,
+            "yearly_income": account.yearly_income,
+            "total_debt": account.total_debt,
+            "credit_score": account.credit_score,
+            "num_credit_cards": account.num_credit_cards,
+            "is_verified": account.is_verified,
+            "password_reset_required": account.password_reset_required
         }
+    }
 
     
     return {
@@ -179,7 +124,16 @@ def login_totp(request: TOTPLoginRequest, db: Session = Depends(get_db)):
             "email": account.email,
             "account_number": account.account_number,
             "baseline_location": account.baseline_primary_location,
-            "baseline_device": account.baseline_primary_device
+            "baseline_device": account.baseline_primary_device,
+            "age": account.age,
+            "gender": account.gender,
+            "address": account.address,
+            "yearly_income": account.yearly_income,
+            "total_debt": account.total_debt,
+            "credit_score": account.credit_score,
+            "num_credit_cards": account.num_credit_cards,
+            "is_verified": account.is_verified,
+            "password_reset_required": account.password_reset_required
         }
     }
 
@@ -212,7 +166,7 @@ def setup_totp(account_id: int, db: Session = Depends(get_db)):
 
 @router.post("/accounts/{account_id}/totp/enable")
 def enable_totp(account_id: int, request: TOTPVerificationRequest, db: Session = Depends(get_db)):
-    account = db.query(Account).filter(Account.id == account_id).first()
+    account = db.query(models.Account).filter(models.Account.id == account_id).first()
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
         
@@ -423,3 +377,38 @@ def lockdown_account(account_id: int, db: Session = Depends(get_db)):
     db.refresh(account)
     
     return {"status": "success", "message": f"Account {account.account_number} has been locked.", "account": account}
+
+@router.post("/{account_id}/remediate-verify")
+def remediate_verify(account_id: int, db: Session = Depends(get_db)):
+    account = db.query(models.Account).filter(models.Account.id == account_id).first()
+    if not account: return {"error": "Account not found"}
+    
+    account.is_verified = 0 # Mark as needing verification
+    
+    # Send mock email
+    from ..services.email_service import send_threat_alert
+    # This is a bit of a hack for the demo to show a "Verification Required" email
+    db.add(models.MockEmail(
+        to_email=account.email,
+        subject="ID Verification Required for Novus Bank Account",
+        html_content=f"Dear {account.holder_name}, we detected unusual activity. Please verify your identity at [Link]."
+    ))
+    
+    db.commit()
+    return {"status": "success", "message": "Verification request sent to user."}
+
+@router.post("/{account_id}/remediate-force-password-reset")
+def remediate_force_password_reset(account_id: int, db: Session = Depends(get_db)):
+    account = db.query(models.Account).filter(models.Account.id == account_id).first()
+    if not account: return {"error": "Account not found"}
+    
+    account.password_reset_required = 1
+    
+    db.add(models.MockEmail(
+        to_email=account.email,
+        subject="Action Required: Your Novus Password has been invalidated",
+        html_content=f"Security Alert: Your password has been reset by the SentinelX system due to a high-risk event. Please reset it immediately."
+    ))
+    
+    db.commit()
+    return {"status": "success", "message": "Password reset enforced."}

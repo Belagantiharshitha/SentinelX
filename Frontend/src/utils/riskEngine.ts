@@ -5,7 +5,7 @@ export interface UserSession {
     bank: string;
     riskScore: number;
     riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-    status: 'Active' | 'Locked' | 'Flagged';
+    status: 'Active' | 'Locked' | 'Monitoring' | 'Verification Required';
     lastEvent: string;
     device: string;
     location: string;
@@ -20,6 +20,7 @@ export interface SuspiciousAlert {
     message: string;
     holderName?: string;
     accountNumber?: string;
+    accountId?: string;
     mlFraudScore?: number;
     mlExplanation?: string;
 }
@@ -33,7 +34,7 @@ export const getRiskLevel = (score: number): UserSession['riskLevel'] => {
 
 export const generateMockSessions = (count: number): UserSession[] => {
     const banks = ['Global Trust', 'Apex Bank', 'Horizon Financial', 'Evergreen Credit'];
-    const statuses: ('Active' | 'Locked' | 'Flagged')[] = ['Active', 'Locked', 'Flagged'];
+    const statuses: ('Active' | 'Locked' | 'Monitoring' | 'Verification Required')[] = ['Active', 'Locked', 'Monitoring', 'Verification Required'];
     const events = ['Deposit', 'Withdrawal', 'Login', 'Transfer', 'KYC Update'];
     const devices = ['iPhone 15 Pro', 'MacBook Pro M2', 'Windows Desktop', 'Android Galaxy S24'];
     const locations = ['New York, US', 'London, UK', 'Berlin, DE', 'Singapore, SG', 'Tokyo, JP'];

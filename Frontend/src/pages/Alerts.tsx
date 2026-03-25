@@ -73,58 +73,58 @@ const Alerts = () => {
                             animate={{ opacity: 1, x: 0 }}
                             exit={{ opacity: 0, scale: 0.95 }}
                             key={alert.id}
-                            className={`glass-card p-6 border-l-4 flex items-start gap-6 group ${alert.severity === 'CRITICAL' ? 'border-l-rose-500' :
+                            className={`glass-card p-4 border-l-4 flex items-start gap-4 group ${alert.severity === 'CRITICAL' ? 'border-l-rose-500' :
                                 alert.severity === 'HIGH' ? 'border-l-amber-400' : 'border-l-emerald-500'
                                 }`}
                         >
-                            <div className={`p-3 rounded-2xl ${alert.severity === 'CRITICAL' ? 'bg-rose-500/10 text-rose-500' :
+                            <div className={`p-2 rounded-xl ${alert.severity === 'CRITICAL' ? 'bg-rose-500/10 text-rose-500' :
                                 alert.severity === 'HIGH' ? 'bg-amber-400/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-500'
                                 } shadow-lg border border-white/5`}>
-                                <ShieldAlert size={24} />
+                                <ShieldAlert size={20} />
                             </div>
 
-                            <div className="flex-1 space-y-1">
-                                <div className="flex items-center gap-3">
-                                    <h3 className="text-lg font-bold">{alert.type}</h3>
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-[0.2em] shadow-sm ${alert.severity === 'CRITICAL' ? 'bg-rose-500/15 text-rose-400 border border-rose-500/20' :
+                            <div className="flex-1 space-y-0.5">
+                                <div className="flex items-center gap-2">
+                                    <h3 className="text-base font-bold">{alert.type}</h3>
+                                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-[0.2em] shadow-sm ${alert.severity === 'CRITICAL' ? 'bg-rose-500/15 text-rose-400 border border-rose-500/20' :
                                         alert.severity === 'HIGH' ? 'bg-amber-400/15 text-amber-400 border border-amber-400/20' : 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/20'
                                         }`}>
                                         {alert.severity}
                                     </span>
                                 </div>
-                                <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-[10px] font-black bg-white/5 border border-white/10 px-2 py-0.5 rounded text-slate-400 tracking-wider">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-[9px] font-black bg-white/5 border border-white/10 px-2 py-0.5 rounded text-slate-400 tracking-wider">
                                         TARGET: <span className="text-white">{alert.holderName || 'Unknown'}</span>
                                     </span>
-                                    <span className="text-[10px] font-mono text-slate-600">[{alert.accountNumber || 'SYSTEM'}]</span>
+                                    <span className="text-[9px] font-mono text-slate-600">[{alert.accountNumber || 'SYSTEM'}]</span>
                                 </div>
-                                <p className="text-slate-400 text-sm leading-relaxed">{alert.message}</p>
-                                <div className="flex items-center gap-4 pt-2">
-                                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                        <Clock size={12} />
+                                <p className="text-slate-400 text-xs leading-relaxed line-clamp-2">{alert.message}</p>
+                                <div className="flex items-center gap-3 pt-1">
+                                    <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-500 uppercase tracking-widest">
+                                        <Clock size={10} />
                                         {new Date(alert.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'medium' })}
                                     </div>
-                                    <Link to='/reports' className="flex items-center gap-1.5 text-[10px] font-bold text-cyber-primary hover:text-cyber-secondary uppercase tracking-widest transition-colors">
-                                        <ExternalLink size={12} />
+                                    <Link to='/reports' className="flex items-center gap-1.5 text-[9px] font-bold text-cyber-primary hover:text-cyber-secondary uppercase tracking-widest transition-colors">
+                                        <ExternalLink size={10} />
                                         View Case
                                     </Link>
                                 </div>
                             </div>
 
-                            <div className="flex gap-2">
+                            <div className="flex gap-1.5">
                                 <button
                                     onClick={() => resolveAlert(alert.id)}
-                                    className="p-2 rounded-xl bg-white/5 border border-white/5 hover:border-cyber-primary/30 hover:bg-cyber-primary/10 hover:text-cyber-primary transition-all shadow-lg"
+                                    className="p-1.5 rounded-lg bg-white/5 border border-white/5 hover:border-cyber-primary/30 hover:bg-cyber-primary/10 hover:text-cyber-primary transition-all shadow-lg"
                                     title="Mark as Resolved"
                                 >
-                                    <CheckCircle2 size={18} />
+                                    <CheckCircle2 size={16} />
                                 </button>
                                 <button
                                     onClick={() => resolveAlert(alert.id)}
-                                    className="p-2 rounded-lg bg-white/5 border border-white/5 hover:bg-rose-500/10 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100"
+                                    className="p-1.5 rounded-lg bg-white/5 border border-white/5 hover:bg-rose-500/10 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100"
                                     title="Dismiss"
                                 >
-                                    <Trash2 size={18} />
+                                    <Trash2 size={16} />
                                 </button>
                             </div>
                         </motion.div>
