@@ -12,7 +12,10 @@ dist/
 
 # Databases
 *.db
-!sentinelx_v4.db # We WANT to keep the demo database for the jury!
+!sentinelx_v4.db
+
+# Exclude Demo Bank
+Novus-Bank/
 
 # OS
 .DS_Store
