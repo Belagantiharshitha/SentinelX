@@ -332,17 +332,6 @@ TWILIO_AUTH_TOKEN=xxxxxxxx
 
 ---
 
-# 📷 Screenshots
-
-Add screenshots here.
-
-- Login Page
-- Dashboard
-- Threat Map
-- AI Incident Report
-- Trust Score
-- Risk Timeline
-
 ---
 
 # 🚀 Future Improvements
